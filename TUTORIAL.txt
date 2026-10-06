@@ -1,0 +1,187 @@
+================================================================================
+           STUDYMATE AI – STEP-BY-STEP USER GUIDE & TUTORIAL
+================================================================================
+
+Welcome to StudyMate AI! This tutorial guides you through the complete setup,
+configuration, and daily workflow of using the StudyMate AI Chrome Extension 
+and Python Backend with your Moodle LMS platform.
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. Prerequisites & Installation
+2. Starting the StudyMate AI Backend
+3. Loading the Chrome Extension in Developer Mode
+4. Connecting to Your Moodle LMS
+5. Workflow 1: Automatic & Manual Task Scanning
+6. Workflow 2: Generating AI Solutions for Assignments
+7. Workflow 3: Reviewing, Editing, and Approving Drafts
+8. Workflow 4: Submitting Solutions to Moodle
+9. Workflow 5: Using AI Study Tools (Explain, Summarize, Notes, Practice)
+10. Managing Configuration & Offline Demo Mode
+11. Troubleshooting & FAQs
+
+================================================================================
+1. PREREQUISITES & INSTALLATION
+================================================================================
+- Python 3.8 or higher installed on Windows.
+- Google Chrome (or any Chromium-based browser such as Brave, Edge, Opera).
+- A running Moodle LMS instance (e.g., http://moodle.local or http://localhost).
+
+Open PowerShell or Command Prompt in the project directory:
+   cd C:\StudyMateAI
+
+Install the required Python packages:
+   pip install -r requirements.txt
+
+================================================================================
+2. STARTING THE STUDYMATE AI BACKEND
+================================================================================
+1. Copy the example environment file to create your `.env` file:
+   copy .env.example .env
+
+2. (Optional) Open `.env` in Notepad and insert your OpenAI API key if you want
+   live OpenAI generation:
+      AI_API_KEY=sk-your-openai-api-key-here
+   
+   *Note*: If no API key is provided, StudyMate AI automatically runs in 
+   Intelligent Local Demo Mode, providing formatted academic blueprints 
+   without incurring API charges!
+
+3. Launch the backend server:
+   python backend/app.py
+
+4. You should see:
+   [INFO] Starting StudyMate AI Backend on 0.0.0.0:5000...
+   * Running on http://127.0.0.1:5000
+
+================================================================================
+3. LOADING THE CHROME EXTENSION IN DEVELOPER MODE
+================================================================================
+1. Open Google Chrome.
+2. In the address bar, navigate to:
+   chrome://extensions/
+3. In the top-right corner, toggle ON "Developer mode".
+4. Click the "Load unpacked" button in the top-left corner.
+5. In the file picker dialog, select the folder:
+   C:\StudyMateAI\extension
+6. Click "Select Folder".
+7. You will now see "StudyMate AI" in your Chrome extensions list with its purple
+   icon and version 1.0.0.
+8. (Recommended) Click the puzzle piece icon in Chrome's top-right toolbar and 
+   pin "StudyMate AI" to your browser toolbar for quick access.
+
+================================================================================
+4. CONNECTING TO YOUR MOODLE LMS
+================================================================================
+1. Open your local Moodle instance in Chrome (e.g., http://moodle.local or http://localhost).
+2. Log in as a student with your normal student credentials.
+3. Click the StudyMate AI icon in the Chrome toolbar.
+4. Check the status indicator at the top of the popup:
+   - Green Dot + "Connected to Student Portal": You are connected!
+   - "AI Agent Active": Backend connection is verified and healthy.
+
+================================================================================
+5. WORKFLOW 1: SCANNING MOODLE FOR ASSIGNMENTS & QUIZZES
+================================================================================
+StudyMate AI offers two scanning methods:
+
+METHOD A – AUTOMATIC SCANNING:
+- As you browse your Moodle courses, assignments, or quizzes, the extension 
+  automatically detects academic tasks and syncs them to your database.
+
+METHOD B – MANUAL ONE-CLICK SCAN:
+1. Navigate directly to any Moodle Assignment or Quiz page:
+   (Example: http://moodle.local/mod/assign/view.php?id=2)
+2. Click the StudyMate AI extension icon in your toolbar.
+3. Click the purple button: "Scan for Assignments".
+4. The button will animate and show "✓ Scan Complete".
+5. The scanned task (title, instructions, due date) is now stored!
+
+================================================================================
+6. WORKFLOW 2: GENERATING AI SOLUTIONS
+================================================================================
+1. Open the StudyMate AI Popup and click "View all" or click the Gear icon to 
+   open the Full Dashboard.
+2. In the Dashboard sidebar, click "All Tasks".
+3. Locate your assignment card and click the purple "Solve with AI" button.
+4. StudyMate AI's AI Service analyzes the task prompt, instructions, and course 
+   context, generating an academic solution draft.
+5. Once generated, the dashboard automatically opens the solution in the 
+   "Review Solutions" tab!
+
+================================================================================
+7. WORKFLOW 3: REVIEWING, EDITING & APPROVING DRAFTS (HUMAN-IN-THE-LOOP)
+================================================================================
+StudyMate AI follows strict academic ethics: the student always remains in control.
+
+1. In the "Review Solutions" tab:
+   - You can read the full AI-generated draft.
+   - You can edit the text directly in the review editor.
+   - Check the live word count indicator.
+2. AI Action Buttons:
+   - "Regenerate": Request a fresh answer generation.
+   - "Improve & Expand": Ask the AI to deepen explanations or code comments.
+   - "Explain Reasoning": Request a breakdown of concepts and methodology.
+3. Student Control Buttons:
+   - "Save Draft": Saves your manual edits to the database.
+   - "Approve Draft": Confirms student approval. Once approved, the submission 
+     section becomes unlocked!
+
+================================================================================
+8. WORKFLOW 4: SUBMITTING SOLUTIONS TO MOODLE
+================================================================================
+1. After clicking "Approve Draft", the green submission panel appears.
+2. Make sure your Moodle assignment page is open in a browser tab.
+3. Click "Submit to Moodle".
+4. StudyMate AI automatically injects your approved solution into the Moodle 
+   submission box (Atto, TinyMCE, or standard text editor).
+5. The task status transitions to "Submitted" and is recorded in your 
+   "Task History" log!
+
+================================================================================
+9. WORKFLOW 5: USING AI ACADEMIC STUDY TOOLS
+================================================================================
+Need help studying for exams or understanding difficult lectures?
+
+1. Open the StudyMate AI Dashboard.
+2. Click "Study Tools" in the left sidebar.
+3. Choose one of four study modes:
+   - 💡 Explain Concept: Simple, step-by-step conceptual walkthroughs.
+   - 📑 Summarize Topic: Concise overview and bulleted key takeaways.
+   - 📝 Generate Notes: Structured lecture notes with definitions.
+   - 🧪 Practice Questions: Sample quiz questions with hints and answers.
+4. Type or paste your topic in the input box (e.g., "Dijkstra's Algorithm" or 
+   "Database Normalization Form 3NF").
+5. Click "Generate Study Material".
+6. Read, copy, or study the generated material!
+
+================================================================================
+10. MANAGING CONFIGURATION & SETTINGS
+================================================================================
+In the Dashboard "Settings" tab:
+- Backend API URL: Default is http://localhost:5000/api
+- Moodle LMS URL: Default is http://moodle.local
+- Auto-Scan on navigation: Automatically sync tasks when visiting Moodle.
+- Auto-Submit Mode: (Disabled by default) Keeps the student explicitly in control 
+  before any Moodle submission.
+
+================================================================================
+11. TROUBLESHOOTING & FAQS
+================================================================================
+Q: The extension popup says "AI Agent Offline".
+A: Make sure your backend server is running in a terminal:
+   python backend/app.py
+
+Q: I don't have an OpenAI API key. Can I still use the system?
+A: Yes! StudyMate AI has a built-in offline intelligent fallback engine that 
+   creates formatted Markdown blueprints for assignments and multiple-choice 
+   solutions for quizzes without requiring any API keys.
+
+Q: How do I test the extension on a local Moodle site?
+A: Navigate to your local Moodle instance (e.g., http://localhost/moodle or 
+   http://moodle.local), log into any course, and click "Scan for Assignments".
+
+================================================================================
+                        StudyMate AI – Empowering Students
+================================================================================
