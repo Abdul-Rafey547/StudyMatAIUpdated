@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "StudyMate AI",
+  "version": "0.1.0",
+  "description": "AI-powered student assistant for LMS platforms.",
+
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+
+  "host_permissions": [
+    "http://moodle.local/*"
+  ],
+
+  "action": {
+    "default_title": "StudyMate AI",
+    "default_popup": "popup/popup.html"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "http://moodle.local/*"
+      ],
+      "js": [
+        "content.js"
+      ]
+    }
+  ]
+}
