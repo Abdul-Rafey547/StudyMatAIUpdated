@@ -30,6 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
         studyResultContainer: document.getElementById('studyResultContainer'),
         studyResultText: document.getElementById('studyResultText'),
         historyList: document.getElementById('historyList'),
+        settingsAiProvider: document.getElementById('settingsAiProvider'),
+        settingsAiModel: document.getElementById('settingsAiModel'),
+        settingsAiApiKey: document.getElementById('settingsAiApiKey'),
         settingsApiUrl: document.getElementById('settingsApiUrl'),
         settingsMoodleUrl: document.getElementById('settingsMoodleUrl'),
         settingsAutoSubmit: document.getElementById('settingsAutoSubmit'),
@@ -211,9 +214,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Solve / Generate Action
     async function handleSolveTask(task) {
-        StudyMateNotification.info(`Generating AI solution for "${task.title || 'Task'}"...`);
+        const config = await getConfig();
+        const providerName = config.aiProvider ? config.aiProvider.toUpperCase() : 'AI';
+        StudyMateNotification.info(`Generating AI solution for "${task.title || 'Task'}" using ${providerName}...`);
         try {
             const res = await chrome.runtime.sendMessage({
                 type: 'GENERATE_AI_SOLUTION',
@@ -221,7 +225,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     taskId: task.id || task.task_id,
                     task_id: task.id || task.task_id,
                     prompt: task.custom_prompt || '',
-                    context: task.description || ''
+                    context: task.description || '',
+                    provider: config.aiProvider,
+                    model: config.aiModel,
+                    api_key: config.aiApiKey
                 }
             });
 
@@ -342,14 +349,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch(`${config.backendUrl}/study/${selectedStudyAction}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ topic: topic })
+                    body: JSON.stringify({
+                        topic: topic,
+                        provider: config.aiProvider,
+                        model: config.aiModel,
+                        api_key: config.aiApiKey
+                    })
                 });
                 const data = await res.json();
 
                 if (data && (data.material || data.result)) {
                     if (els.studyResultContainer) els.studyResultContainer.style.display = 'block';
                     if (els.studyResultText) els.studyResultText.textContent = data.material || data.result;
-                    StudyMateNotification.success('Study material ready!');
+                    StudyMateNotification.success(`Study material generated via ${data.provider || config.aiProvider || 'AI'}!`);
                 } else {
                     StudyMateNotification.error(data?.error || 'Failed to generate study material.');
                 }
@@ -397,18 +409,76 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Provider Model Placeholders
+    const PROVIDER_PLACEHOLDERS = {
+        'google': 'e.g. gemini-1.5-flash, gemini-2.0-flash, gemini-1.5-pro',
+        'claude': 'e.g. claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022, claude-3-7-sonnet-20250219',
+        'groq': 'e.g. llama-3.3-70b-versatile, llama-3.1-8b-instant, mixtral-8x7b-32768',
+        'openai': 'e.g. gpt-4o, gpt-4o-mini, gpt-4-turbo, o1, o3-mini',
+        'deepseek': 'e.g. deepseek-chat, deepseek-reasoner',
+        'ollama': 'e.g. llama3, llama3.1, mistral, qwen2.5, phi3, deepseek-r1',
+        'fallback': 'Offline template mode (no model required)'
+    };
+
+    if (els.settingsAiProvider) {
+        els.settingsAiProvider.addEventListener('change', () => {
+            const selected = els.settingsAiProvider.value;
+            if (els.settingsAiModel) {
+                els.settingsAiModel.placeholder = PROVIDER_PLACEHOLDERS[selected] || 'Enter custom model name';
+            }
+        });
+    }
+
     // Settings
     async function loadSettings() {
         const config = await getConfig();
+        if (els.settingsAiProvider) els.settingsAiProvider.value = config.aiProvider || 'google';
+        if (els.settingsAiModel) els.settingsAiModel.value = config.aiModel || '';
+        if (els.settingsAiApiKey) els.settingsAiApiKey.value = config.aiApiKey || '';
         if (els.settingsApiUrl) els.settingsApiUrl.value = config.backendUrl || 'http://localhost:5000/api';
         if (els.settingsMoodleUrl) els.settingsMoodleUrl.value = config.moodleUrl || 'http://moodle.local';
         if (els.settingsAutoSubmit) els.settingsAutoSubmit.checked = !!config.autoSubmit;
         if (els.settingsAutoScan) els.settingsAutoScan.checked = config.autoScan !== false;
+
+        // Set placeholder based on initial provider
+        if (els.settingsAiProvider && els.settingsAiModel) {
+            const currentProvider = els.settingsAiProvider.value;
+            els.settingsAiModel.placeholder = PROVIDER_PLACEHOLDERS[currentProvider] || 'e.g. gemini-1.5-flash';
+        }
+
+        // Fetch backend provider details to enrich provider selector
+        try {
+            const res = await chrome.runtime.sendMessage({ type: 'GET_AI_PROVIDERS' });
+            if (res && res.success && Array.isArray(res.providers) && els.settingsAiProvider) {
+                const currentVal = config.aiProvider || res.active_provider || 'google';
+                els.settingsAiProvider.innerHTML = '';
+
+                res.providers.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    const statusTag = p.configured ? ' ✓ (Configured in .env)' : '';
+                    opt.textContent = `${p.name} [Default: ${p.default_model}]${statusTag}`;
+                    if (p.id === currentVal) opt.selected = true;
+                    els.settingsAiProvider.appendChild(opt);
+                });
+
+                const fallbackOpt = document.createElement('option');
+                fallbackOpt.value = 'fallback';
+                fallbackOpt.textContent = 'Local Academic Fallback (Offline Demo Mode)';
+                if (currentVal === 'fallback') fallbackOpt.selected = true;
+                els.settingsAiProvider.appendChild(fallbackOpt);
+            }
+        } catch (e) {
+            console.log('[StudyMate AI] Live provider list unavailable; using static list.');
+        }
     }
 
     if (els.saveSettingsBtn) {
         els.saveSettingsBtn.addEventListener('click', async () => {
             const newConfig = {
+                aiProvider: els.settingsAiProvider ? els.settingsAiProvider.value : 'google',
+                aiModel: els.settingsAiModel ? els.settingsAiModel.value.trim() : '',
+                aiApiKey: els.settingsAiApiKey ? els.settingsAiApiKey.value.trim() : '',
                 backendUrl: els.settingsApiUrl ? els.settingsApiUrl.value.trim() : 'http://localhost:5000/api',
                 moodleUrl: els.settingsMoodleUrl ? els.settingsMoodleUrl.value.trim() : 'http://moodle.local',
                 autoSubmit: els.settingsAutoSubmit ? els.settingsAutoSubmit.checked : false,
@@ -420,13 +490,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 payload: newConfig
             });
 
-            StudyMateNotification.success('Settings saved successfully!');
+            StudyMateNotification.success('Settings & AI Provider saved successfully!');
         });
     }
 
     async function getConfig() {
         const stored = await chrome.storage.local.get(['config']);
-        return stored.config || { backendUrl: 'http://localhost:5000/api', moodleUrl: 'http://moodle.local' };
+        return stored.config || { backendUrl: 'http://localhost:5000/api', moodleUrl: 'http://moodle.local', aiProvider: 'google' };
     }
 
     // Initial Load

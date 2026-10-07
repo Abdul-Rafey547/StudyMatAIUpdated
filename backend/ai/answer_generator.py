@@ -1,42 +1,68 @@
 """
-Core generation logic, supporting OpenAI, Anthropic, or an intelligent fallback system if no API key is present.
+StudyMate AI - Answer Generator & Live Provider Dispatcher
+Supports Google Gemini, Anthropic Claude, Groq, OpenAI, DeepSeek, Ollama, and offline intelligent fallback.
 """
 import os
 import json
-import urllib.request
-import urllib.error
+from typing import Optional, Dict, Any
+from ai.providers import (
+    GeminiProvider,
+    ClaudeProvider,
+    GroqProvider,
+    OpenAIProvider,
+    DeepSeekProvider,
+    OllamaProvider,
+    get_provider
+)
 
-def call_openai_api(api_key, model_name, prompt):
-    url = "https://api.openai.com/v1/chat/completions"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-    payload = {
-        "model": model_name or "gpt-4o",
-        "messages": [
-            {"role": "system", "content": "You are StudyMate AI, an academic assistant."},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.4
-    }
+def call_gemini_api(api_key: str, model_name: Optional[str], prompt: str, system_prompt: Optional[str] = None) -> str:
+    """Direct helper to call Google Gemini API."""
+    provider = GeminiProvider(api_key=api_key, model_name=model_name)
+    return provider.generate_response(prompt, system_prompt=system_prompt)
 
-    req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=headers)
-    try:
-        with urllib.request.urlopen(req) as response:
-            res_data = json.loads(response.read().decode('utf-8'))
-            return res_data['choices'][0]['message']['content']
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode('utf-8')
-        raise Exception(f"OpenAI API error: {e.code} - {error_body}")
-    except Exception as e:
-        raise Exception(f"Failed to connect to OpenAI API: {str(e)}")
+def call_claude_api(api_key: str, model_name: Optional[str], prompt: str, system_prompt: Optional[str] = None) -> str:
+    """Direct helper to call Anthropic Claude API."""
+    provider = ClaudeProvider(api_key=api_key, model_name=model_name)
+    return provider.generate_response(prompt, system_prompt=system_prompt)
 
-def generate_local_fallback(task_dict):
+def call_groq_api(api_key: str, model_name: Optional[str], prompt: str, system_prompt: Optional[str] = None) -> str:
+    """Direct helper to call Groq Cloud API."""
+    provider = GroqProvider(api_key=api_key, model_name=model_name)
+    return provider.generate_response(prompt, system_prompt=system_prompt)
+
+def call_openai_api(api_key: str, model_name: Optional[str], prompt: str, system_prompt: Optional[str] = None) -> str:
+    """Direct helper to call OpenAI API."""
+    provider = OpenAIProvider(api_key=api_key, model_name=model_name)
+    return provider.generate_response(prompt, system_prompt=system_prompt)
+
+def call_deepseek_api(api_key: str, model_name: Optional[str], prompt: str, system_prompt: Optional[str] = None) -> str:
+    """Direct helper to call DeepSeek API."""
+    provider = DeepSeekProvider(api_key=api_key, model_name=model_name)
+    return provider.generate_response(prompt, system_prompt=system_prompt)
+
+def call_ollama_api(base_url: Optional[str], model_name: Optional[str], prompt: str, system_prompt: Optional[str] = None) -> str:
+    """Direct helper to call Ollama local API."""
+    provider = OllamaProvider(base_url=base_url, model_name=model_name)
+    return provider.generate_response(prompt, system_prompt=system_prompt)
+
+def generate_local_fallback(task_dict: Dict[str, Any], action: Optional[str] = None, topic: Optional[str] = None) -> str:
     """
-    Fallback answer generator when no API key is provided, producing structured templates
-    so the system remains fully testable offline during demonstrations.
+    Fallback answer generator when no API key is provided or offline mode is chosen, producing structured templates
+    so the system remains fully testable offline during demonstrations and local testing.
     """
+    if action and topic:
+        return (
+            f"### {action.capitalize()}: {topic.capitalize()}\n\n"
+            f"#### Overview & Core Concepts\n"
+            f"- **Subject Area**: {topic}\n"
+            f"- **Summary**: An academic synthesis detailing fundamental principles, practical applications, and key mechanisms related to {topic}.\n\n"
+            f"#### Detailed Breakdown\n"
+            f"1. **Core Concept Definition**: Fundamental theoretical framework and mathematical/algorithmic context.\n"
+            f"2. **Practical Application**: Real-world scenarios, case studies, and code/computational implementations.\n"
+            f"3. **Key Takeaways & Review**: Critical points for exams, assignments, and practical coursework.\n\n"
+            f"*(Generated via StudyMate AI Local Engine. Configure your AI API key in Settings or `.env` for real-time model completions)*"
+        )
+
     title = task_dict.get('title', 'Assignment')
     description = task_dict.get('description', '')
     task_type = task_dict.get('type', 'ASSIGNMENT')
@@ -47,13 +73,13 @@ def generate_local_fallback(task_dict):
 
 **Question 1:**
 - **Answer:** Option B
-- **Explanation:** Based on the standard definitions and course material, this is the most accurate solution.
+- **Explanation:** Based on standard academic definitions and course material, this is the most accurate solution.
 
 **Question 2:**
 - **Answer:** Option A
 - **Explanation:** Derived by applying the fundamental principles described in the problem statement.
 
-*(Note: Provide an AI_API_KEY in `.env` to enable full live LLM generation)*"""
+*(Note: Provide a Google, Claude, Groq, or OpenAI API key in Settings or `.env` to enable full live LLM generation)*"""
 
     return f"""### StudyMate AI - Solution Draft
 **Task:** {title}
@@ -69,13 +95,14 @@ The assignment requires addressing:
 
 #### 3. Proposed Solution
 ```python
-# Sample solution blueprint generated for demonstration
+# Solution blueprint generated for {title}
 def solve_coursework():
-    print("Executing standard algorithm for {title}...")
+    \"\"\"Academic implementation for {title}\"\"\"
+    print("Executing coursework solution algorithm...")
     return True
 ```
 
 #### 4. Conclusion & Summary
-This drafted response addresses the fundamental rubric criteria. Please review and refine the solution before final submission.
+This drafted response addresses the fundamental rubric criteria. Please review and refine the solution in the Solution Editor before final submission.
 
-*(Note: Configure your AI_API_KEY in the backend `.env` to activate full live LLM model generation)*"""
+*(Note: Configure your Google Gemini, Claude, Groq, or OpenAI API key in `.env` or Settings to activate full live LLM generation)*"""

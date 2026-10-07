@@ -40,13 +40,22 @@ Install the required Python packages:
 1. Copy the example environment file to create your `.env` file:
    copy .env.example .env
 
-2. (Optional) Open `.env` in Notepad and insert your OpenAI API key if you want
-   live OpenAI generation:
-      AI_API_KEY=sk-your-openai-api-key-here
+2. (Optional) Open `.env` in Notepad to configure your preferred AI provider
+   and API key. StudyMate AI supports:
+   - Google Gemini:      AI_PROVIDER=google     GEMINI_API_KEY=your-gemini-key
+   - Anthropic Claude:   AI_PROVIDER=claude     ANTHROPIC_API_KEY=your-claude-key
+   - Groq Cloud:         AI_PROVIDER=groq       GROQ_API_KEY=your-groq-key
+   - OpenAI GPT:         AI_PROVIDER=openai     OPENAI_API_KEY=your-openai-key
+   - DeepSeek:           AI_PROVIDER=deepseek   DEEPSEEK_API_KEY=your-deepseek-key
+   - Ollama (Local LLM): AI_PROVIDER=ollama     OLLAMA_BASE_URL=http://localhost:11434
+   - Generic Key:        AI_API_KEY=your-key-here
    
-   *Note*: If no API key is provided, StudyMate AI automatically runs in 
+   *Note*: You can also configure or override your AI provider and API key directly
+   inside the Chrome Extension Dashboard in the Settings tab!
+   
+   If no API key is provided, StudyMate AI automatically runs in 
    Intelligent Local Demo Mode, providing formatted academic blueprints 
-   without incurring API charges!
+   without incurring any API charges!
 
 3. Launch the backend server:
    python backend/app.py
@@ -157,9 +166,14 @@ Need help studying for exams or understanding difficult lectures?
 6. Read, copy, or study the generated material!
 
 ================================================================================
-10. MANAGING CONFIGURATION & SETTINGS
+10. MANAGING CONFIGURATION & MULTI-PROVIDER AI SETTINGS
 ================================================================================
 In the Dashboard "Settings" tab:
+- Active AI Provider: Select Google Gemini, Claude, Groq, OpenAI, DeepSeek, 
+  Ollama, or Local Academic Fallback.
+- AI Model Name: (Optional) Override with a specific model identifier such as
+  `gemini-2.0-flash`, `claude-3-5-haiku-20241022`, or `llama-3.3-70b-versatile`.
+- API Key: (Optional) Enter custom provider API key or leave blank to use `.env`.
 - Backend API URL: Default is http://localhost:5000/api
 - Moodle LMS URL: Default is http://moodle.local
 - Auto-Scan on navigation: Automatically sync tasks when visiting Moodle.
@@ -173,10 +187,20 @@ Q: The extension popup says "AI Agent Offline".
 A: Make sure your backend server is running in a terminal:
    python backend/app.py
 
-Q: I don't have an OpenAI API key. Can I still use the system?
-A: Yes! StudyMate AI has a built-in offline intelligent fallback engine that 
-   creates formatted Markdown blueprints for assignments and multiple-choice 
-   solutions for quizzes without requiring any API keys.
+Q: Which AI providers are supported?
+A: StudyMate AI natively supports:
+   - Google Gemini (Gemini 1.5 Flash, 1.5 Pro, 2.0 Flash)
+   - Anthropic Claude (Claude 3.5 Sonnet, 3.5 Haiku, 3.7 Sonnet)
+   - Groq Cloud (Ultra-fast Llama 3.3 70B, Llama 3.1 8B, Mixtral)
+   - OpenAI GPT (GPT-4o, GPT-4o-mini, GPT-4 Turbo)
+   - DeepSeek (DeepSeek-Chat, DeepSeek-Reasoner)
+   - Ollama (Local offline LLM on localhost:11434)
+   - Offline Academic Fallback (No API key or internet needed)
+
+Q: What happens if an API rate limit or network error occurs?
+A: If `AI_FALLBACK_ON_ERROR=true` (enabled by default), StudyMate AI will 
+   gracefully fall back to the intelligent academic template engine so your 
+   workflow is never interrupted!
 
 Q: How do I test the extension on a local Moodle site?
 A: Navigate to your local Moodle instance (e.g., http://localhost/moodle or 

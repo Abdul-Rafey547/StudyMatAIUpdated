@@ -176,15 +176,44 @@
         <!-- Settings Tab -->
         <section id="settings" class="tab-content">
             <div class="card">
+                <h2>AI Provider &amp; Model Configuration</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 16px;">Configure your preferred LLM provider for coursework solving and study tools.</p>
+                
+                <div class="settings-section">
+                    <label for="settingsAiProvider">Active AI Provider</label>
+                    <select id="settingsAiProvider" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg, #ffffff); color: var(--text-primary); font-size: 14px;">
+                        <option value="google">Google Gemini (Gemini 1.5 Flash / 2.0 Flash / Pro)</option>
+                        <option value="claude">Anthropic Claude (Claude 3.5 Sonnet / Haiku / 3.7)</option>
+                        <option value="groq">Groq Cloud (Ultra Fast Llama 3.3 70B / 3.1 8B)</option>
+                        <option value="openai">OpenAI GPT (GPT-4o / GPT-4o-mini)</option>
+                        <option value="deepseek">DeepSeek (DeepSeek-Chat / R1)</option>
+                        <option value="ollama">Ollama (Local Offline LLM)</option>
+                        <option value="fallback">Local Academic Fallback (Offline Demo Mode)</option>
+                    </select>
+                </div>
+
+                <div class="settings-section">
+                    <label for="settingsAiModel">AI Model Name (Optional override)</label>
+                    <input type="text" id="settingsAiModel" placeholder="e.g. gemini-1.5-flash, claude-3-5-sonnet-20241022, llama-3.3-70b-versatile">
+                    <small style="color: var(--text-secondary); font-size: 12px; margin-top: 4px; display: block;">Leave blank to use the provider's default recommended model.</small>
+                </div>
+
+                <div class="settings-section">
+                    <label for="settingsAiApiKey">API Key (Optional override)</label>
+                    <input type="password" id="settingsAiApiKey" placeholder="Enter custom provider API key or leave blank to use backend .env">
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 24px;">
                 <h2>System &amp; LMS Configuration</h2>
                 
-                <div class="settings-section" style="margin-top: 20px;">
-                    <label>StudyMate AI Backend API URL</label>
+                <div class="settings-section" style="margin-top: 16px;">
+                    <label for="settingsApiUrl">StudyMate AI Backend API URL</label>
                     <input type="text" id="settingsApiUrl" value="http://localhost:5000/api" placeholder="http://localhost:5000/api">
                 </div>
 
                 <div class="settings-section">
-                    <label>Moodle URL</label>
+                    <label for="settingsMoodleUrl">Moodle URL</label>
                     <input type="text" id="settingsMoodleUrl" value="http://moodle.local" placeholder="http://moodle.local">
                 </div>
 

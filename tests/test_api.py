@@ -100,12 +100,54 @@ class StudyMateAPITestCase(unittest.TestCase):
 
     def test_study_tool(self):
         res = self.app.post('/api/study/explain',
-                            data=json.dumps({"topic": "Recursion in Computer Science"}),
+                            data=json.dumps({"topic": "Recursion in Computer Science", "provider": "fallback"}),
                             content_type='application/json')
         data = json.loads(res.data)
         self.assertEqual(res.status_code, 200)
         self.assertTrue(data['success'])
+        self.assertEqual(data['provider'], 'fallback')
         self.assertTrue('Recursion' in data['material'] or len(data['material']) > 0)
+
+    def test_ai_providers_endpoint(self):
+        res = self.app.get('/api/ai/providers')
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data)
+        self.assertTrue(data['success'])
+        self.assertIn('providers', data)
+        self.assertIn('active_provider', data)
+        provider_ids = [p['id'] for p in data['providers']]
+        self.assertIn('google', provider_ids)
+        self.assertIn('claude', provider_ids)
+        self.assertIn('groq', provider_ids)
+        self.assertIn('openai', provider_ids)
+
+    def test_ai_generate_with_custom_provider(self):
+        # 1. Sync task
+        payload = {
+            "task": {
+                "title": "Dijkstra Graph Search",
+                "description": "Shortest path algorithm.",
+                "type": "ASSIGNMENT",
+                "course": "Algorithms"
+            }
+        }
+        res_sync = self.app.post('/api/tasks/sync',
+                                 data=json.dumps(payload),
+                                 content_type='application/json')
+        task_id = json.loads(res_sync.data)['task_id']
+
+        # 2. Generate using fallback provider explicitly
+        res_ai = self.app.post('/api/ai/generate',
+                               data=json.dumps({
+                                   "task_id": task_id,
+                                   "provider": "fallback"
+                               }),
+                               content_type='application/json')
+        ai_data = json.loads(res_ai.data)
+        self.assertEqual(res_ai.status_code, 200)
+        self.assertTrue(ai_data['success'])
+        self.assertEqual(ai_data['provider'], 'fallback')
+        self.assertIn("Dijkstra Graph Search", ai_data['solution']['generated_answer'])
 
 if __name__ == '__main__':
     unittest.main()

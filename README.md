@@ -11,14 +11,14 @@ Designed for university coursework, StudyMate AI bridges the gap between LMS tas
 1. **Intelligent Moodle Detection & Scanning**:
    - Automatically detects Moodle course pages, assignments, and quizzes.
    - Extracts instructions, precise due dates, attempt counts, and submission statuses.
-2. **AI-Assisted Solution Generation**:
-   - Generates step-by-step academic solutions using OpenAI GPT-4o or an offline intelligent fallback engine.
+2. **Multi-Provider AI Solution Generation**:
+   - Seamlessly connect multiple AI providers: **Google Gemini** (`gemini-1.5-flash`, `gemini-2.0-flash`, `pro`), **Anthropic Claude** (`claude-3-5-sonnet`, `haiku`, `3.7`), **Groq Cloud** (`llama-3.3-70b-versatile`, `3.1-8b`), **OpenAI** (`gpt-4o`, `gpt-4o-mini`), **DeepSeek** (`deepseek-chat`, `r1`), **Ollama** (offline local LLM), and **Intelligent Local Academic Fallback**.
 3. **Human-in-the-Loop Solution Editor**:
    - Review, edit, refine, expand, and approve AI drafts prior to submission.
 4. **Moodle Submission Integration**:
    - Seamlessly injects approved solutions into Moodle assignment submission text areas (Atto, TinyMCE, standard editors).
 5. **AI Academic Study Tools**:
-   - Concept Explanation, Topic Summarization, Structured Lecture Notes, and Practice Question generation.
+   - Concept Explanation, Topic Summarization, Structured Lecture Notes, and Practice Question generation across any configured provider.
 6. **Task & Submission History**:
    - Comprehensive log of past submissions, drafts, and coursework activity.
 
@@ -27,15 +27,19 @@ Designed for university coursework, StudyMate AI bridges the gap between LMS tas
 ## 🏗️ System Architecture
 
 ```
-Moodle LMS ──▶ Chrome Extension (Manifest V3) ──▶ Flask Backend (REST) ──▶ AI Engine / Fallback
-                                                        │
-                                                        ▼
-                                                  SQLite Database
+Moodle LMS ──▶ Chrome Extension (Manifest V3) ──▶ Flask Backend (REST) ──▶ Multi-Provider AI Engine
+                                                        │                  ├─ Google Gemini
+                                                        ▼                  ├─ Anthropic Claude
+                                                  SQLite Database          ├─ Groq Cloud
+                                                                           ├─ OpenAI GPT
+                                                                           ├─ DeepSeek
+                                                                           ├─ Ollama (Local LLM)
+                                                                           └─ Local Fallback Engine
 ```
 
 - **Frontend**: Chrome Extension (Manifest V3, HTML5, Glassmorphic CSS3, Vanilla JS).
 - **Backend**: Python 3.10+ with Flask, Blueprints architecture, SQLite.
-- **AI Engine**: Modular provider support (OpenAI `gpt-4o`, offline academic blueprint fallback).
+- **AI Engine**: Modular multi-provider architecture (Google Gemini, Claude, Groq, OpenAI, DeepSeek, Ollama, and offline fallback).
 
 ---
 

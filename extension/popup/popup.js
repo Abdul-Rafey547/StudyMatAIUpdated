@@ -57,13 +57,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('Tab query error:', e);
         }
 
-        // 4. Verify Backend Health
+        // 4. Verify Backend Health & AI Status
         try {
             const health = await chrome.runtime.sendMessage({ type: 'CHECK_BACKEND_HEALTH' });
             if (!health || health.status !== 'ok') {
                 setAIOffline();
             } else {
-                setAIOnline(health.ai_model || 'gpt-4o');
+                const activeProvider = config.aiProvider || health.ai_provider || 'google';
+                const activeModel = config.aiModel || health.ai_model || '';
+                setAIOnline(activeProvider, activeModel);
             }
         } catch (e) {
             setAIOffline();
@@ -181,12 +183,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (aiPulse) aiPulse.style.display = 'none';
     }
 
-    function setAIOnline(model) {
+    function setAIOnline(provider, model) {
         if (!aiCard) return;
         aiCard.style.opacity = '1';
+        aiCard.style.cursor = 'pointer';
+        aiCard.title = 'Click to configure AI providers in Dashboard';
         if (aiStatusTitle) aiStatusTitle.textContent = 'AI Agent Active';
-        if (aiStatusDesc) aiStatusDesc.textContent = `Ready (${model})`;
+
+        const providerDisplayMap = {
+            'google': 'Google Gemini',
+            'claude': 'Anthropic Claude',
+            'groq': 'Groq Cloud',
+            'openai': 'OpenAI GPT',
+            'deepseek': 'DeepSeek',
+            'ollama': 'Ollama Local',
+            'fallback': 'Local Fallback'
+        };
+        const pName = providerDisplayMap[(provider || '').toLowerCase()] || (provider ? provider.toUpperCase() : 'AI Active');
+        const mName = model ? ` • ${model}` : '';
+        if (aiStatusDesc) aiStatusDesc.textContent = `Ready (${pName}${mName})`;
         if (aiPulse) aiPulse.style.display = 'block';
+    }
+
+    if (aiCard) {
+        aiCard.addEventListener('click', () => {
+            chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD' });
+        });
     }
 
     // Scan Button Handler

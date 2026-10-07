@@ -9,9 +9,19 @@ class Config:
     API_HOST = os.getenv('API_HOST', '0.0.0.0')
 
     # AI Configuration
-    AI_PROVIDER = os.getenv('AI_PROVIDER', 'openai') # e.g. openai, anthropic, gemini
+    # Supported: google (gemini), claude (anthropic), groq, openai, deepseek, ollama, fallback
+    AI_PROVIDER = os.getenv('AI_PROVIDER', 'google').lower()
     AI_API_KEY = os.getenv('AI_API_KEY', '')
-    AI_MODEL_NAME = os.getenv('AI_MODEL_NAME', 'gpt-4o')
+    AI_MODEL_NAME = os.getenv('AI_MODEL_NAME', '')
+    AI_FALLBACK_ON_ERROR = os.getenv('AI_FALLBACK_ON_ERROR', 'true').lower() in ('true', '1', 'yes')
+
+    # Provider-Specific API Keys (takes precedence over generic AI_API_KEY if specified)
+    GEMINI_API_KEY = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY', '')
+    ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY') or os.getenv('CLAUDE_API_KEY', '')
+    GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+    DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', '')
+    OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
 
     # Moodle Configuration
     MOODLE_URL = os.getenv('MOODLE_URL', 'http://moodle.local')

@@ -6,6 +6,9 @@
 const DEFAULT_CONFIG = {
   backendUrl: 'http://localhost:5000/api',
   moodleUrl: 'http://moodle.local',
+  aiProvider: 'google', // 'google' | 'claude' | 'groq' | 'openai' | 'deepseek' | 'ollama' | 'fallback'
+  aiModel: '',
+  aiApiKey: '',
   autoSubmit: false,
   autoScan: true,
   debugMode: true
@@ -17,6 +20,9 @@ chrome.runtime.onInstalled.addListener(async () => {
   const stored = await chrome.storage.local.get(['config', 'tasks', 'history']);
   if (!stored.config) {
     await chrome.storage.local.set({ config: DEFAULT_CONFIG });
+  } else {
+    // Merge new config keys
+    await chrome.storage.local.set({ config: { ...DEFAULT_CONFIG, ...stored.config } });
   }
   if (!stored.tasks) {
     await chrome.storage.local.set({ tasks: [] });
@@ -31,7 +37,7 @@ chrome.runtime.onInstalled.addListener(async () => {
  */
 async function getConfig() {
   const data = await chrome.storage.local.get('config');
-  return data.config || DEFAULT_CONFIG;
+  return { ...DEFAULT_CONFIG, ...(data.config || {}) };
 }
 
 /**
@@ -96,13 +102,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function handleMessage(action, message, sender) {
   switch (action) {
-    // 1. Check Backend Health
+    // 1. Check Backend Health & Active AI Provider
     case 'CHECK_BACKEND_HEALTH': {
       const res = await apiRequest('/health');
       return res;
     }
 
-    // 2. Moodle page detected from content script
+    // 2. Get AI Providers & Models
+    case 'GET_AI_PROVIDERS': {
+      const res = await apiRequest('/ai/providers');
+      return res;
+    }
+
+    // 3. Moodle page detected from content script
     case 'MOODLE_PAGE_DETECTED': {
       console.log('[StudyMate AI] Moodle page detected:', message.payload);
       await chrome.storage.local.set({
@@ -115,7 +127,7 @@ async function handleMessage(action, message, sender) {
       return { success: true };
     }
 
-    // 3. Scan results from content script
+    // 4. Scan results from content script
     case 'SYNC_SCANNED_TASK': {
       const task = message.payload;
       console.log('[StudyMate AI] Scanned task received:', task);
@@ -143,7 +155,7 @@ async function handleMessage(action, message, sender) {
       return { success: true, localTasks: tasks, backendSynced: backendRes.success };
     }
 
-    // 4. Get tasks (from backend or fallback to local storage)
+    // 5. Get tasks (from backend or fallback to local storage)
     case 'GET_TASKS': {
       const backendRes = await apiRequest('/tasks');
       if (backendRes.success && Array.isArray(backendRes.tasks)) {
@@ -155,20 +167,28 @@ async function handleMessage(action, message, sender) {
       return { success: true, tasks: stored.tasks || [], source: 'local' };
     }
 
-    // 5. Generate AI Solution
+    // 6. Generate AI Solution (passes provider, model, apiKey if configured)
     case 'GENERATE_AI_SOLUTION': {
+      const config = await getConfig();
       const payload = message.payload || {};
       const taskId = payload.task_id || payload.taskId;
       const prompt = payload.prompt || payload.custom_prompt || '';
       const context = payload.context || '';
-      console.log(`[StudyMate AI] Requesting AI solution for task ${taskId}...`);
+      const provider = payload.provider || config.aiProvider || 'google';
+      const model = payload.model || config.aiModel || '';
+      const apiKey = payload.api_key || config.aiApiKey || '';
+
+      console.log(`[StudyMate AI] Requesting AI solution for task ${taskId} using ${provider}...`);
 
       const backendRes = await apiRequest('/ai/generate', {
         method: 'POST',
         body: JSON.stringify({
           task_id: taskId,
           prompt: prompt,
-          context: context
+          context: context,
+          provider: provider,
+          model: model,
+          api_key: apiKey
         })
       });
 
@@ -188,7 +208,7 @@ async function handleMessage(action, message, sender) {
       return backendRes;
     }
 
-    // 6. Save Draft Solution
+    // 7. Save Draft Solution
     case 'SAVE_DRAFT_SOLUTION': {
       const payload = message.payload || {};
       const taskId = payload.task_id || payload.taskId;
@@ -222,7 +242,7 @@ async function handleMessage(action, message, sender) {
       return backendRes.success ? backendRes : { success: true, message: 'Draft saved locally' };
     }
 
-    // 7. Submit Solution
+    // 8. Submit Solution
     case 'SUBMIT_SOLUTION': {
       const payload = message.payload || {};
       const taskId = payload.task_id || payload.taskId;
@@ -282,7 +302,7 @@ async function handleMessage(action, message, sender) {
       return backendRes.success ? backendRes : { success: true, message: 'Submission logged' };
     }
 
-    // 8. Trigger active tab page scan
+    // 9. Trigger active tab page scan
     case 'TRIGGER_ACTIVE_TAB_SCAN': {
       const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!activeTab || !activeTab.id) {
@@ -297,14 +317,14 @@ async function handleMessage(action, message, sender) {
       }
     }
 
-    // 9. Open Full Dashboard
+    // 10. Open Full Dashboard
     case 'OPEN_DASHBOARD': {
       const url = chrome.runtime.getURL('dashboard/dashboard.html');
       chrome.tabs.create({ url });
       return { success: true };
     }
 
-    // 10. Update Configuration
+    // 11. Update Configuration
     case 'UPDATE_CONFIG': {
       const current = await getConfig();
       const updated = { ...current, ...message.payload };

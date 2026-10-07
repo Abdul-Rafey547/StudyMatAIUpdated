@@ -1,13 +1,30 @@
 """
 StudyMate AI - AI Solutions & Study API Blueprint
+Supports multi-provider execution (Google, Claude, Groq, OpenAI, DeepSeek, Ollama) and provider listing.
 """
 from flask import Blueprint, request, jsonify
 from database.database import get_db_connection
 from ai.ai_service import generate_answer_for_task, generate_study_material
+from ai.providers.factory import list_available_providers
+from config import Config
 from utils.logger import get_logger
 
 logger = get_logger('studymate.api.ai')
 ai_bp = Blueprint('ai', __name__)
+
+@ai_bp.route('/providers', methods=['GET'])
+def get_providers():
+    """
+    List all supported AI providers (Google Gemini, Anthropic Claude, Groq, OpenAI, Ollama, etc.)
+    and their active configuration status.
+    """
+    providers = list_available_providers()
+    return jsonify({
+        "success": True,
+        "active_provider": Config.AI_PROVIDER,
+        "active_model": Config.AI_MODEL_NAME,
+        "providers": providers
+    })
 
 @ai_bp.route('/generate', methods=['POST'])
 def generate_solution():
@@ -16,6 +33,11 @@ def generate_solution():
         task_id = data.get('task_id') or data.get('taskId')
         custom_prompt = data.get('prompt') or data.get('custom_prompt')
         context = data.get('context')
+        
+        # Provider options override
+        provider_name = data.get('provider') or data.get('ai_provider')
+        model_name = data.get('model') or data.get('ai_model')
+        api_key = data.get('api_key') or data.get('apiKey')
 
         if not task_id:
             return jsonify({"error": "task_id is required"}), 400
@@ -35,8 +57,13 @@ def generate_solution():
         if context:
             task_dict['context'] = context
 
-        logger.info(f"Generating solution for task #{task_id} ({task_dict.get('title')})")
-        answer_text = generate_answer_for_task(task_dict)
+        logger.info(f"Generating solution for task #{task_id} ({task_dict.get('title')}) with provider: {provider_name or Config.AI_PROVIDER}")
+        answer_text = generate_answer_for_task(
+            task_dict,
+            provider_name=provider_name,
+            model_name=model_name,
+            api_key=api_key
+        )
 
         c.execute("""
             INSERT INTO solutions (task_id, generated_answer, status)
@@ -54,6 +81,7 @@ def generate_solution():
         return jsonify({
             "success": True,
             "solution_id": solution_id,
+            "provider": provider_name or Config.AI_PROVIDER,
             "solution": dict(solution) if solution else None
         })
 
@@ -73,10 +101,21 @@ def study_action(action):
         topic = data.get('topic')
         course_id = data.get('course_id')
 
+        # Provider options override
+        provider_name = data.get('provider') or data.get('ai_provider')
+        model_name = data.get('model') or data.get('ai_model')
+        api_key = data.get('api_key') or data.get('apiKey')
+
         if not topic:
             return jsonify({"error": "topic is required"}), 400
 
-        material = generate_study_material(action.lower(), topic)
+        material = generate_study_material(
+            action.lower(),
+            topic,
+            provider_name=provider_name,
+            model_name=model_name,
+            api_key=api_key
+        )
 
         # Store session in database
         conn = get_db_connection()
@@ -95,6 +134,7 @@ def study_action(action):
             "success": True,
             "action": action,
             "topic": topic,
+            "provider": provider_name or Config.AI_PROVIDER,
             "material": material
         })
 
