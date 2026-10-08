@@ -1,0 +1,26 @@
+# StudyMate AI – Extension Folder Clean-up Report
+
+## Summary of Analysis
+The repository contained two directories related to the Chrome Extension:
+1. `extension/` (COMPLETED & ACTIVE)
+   - Manifest V3 configuration (`manifest.json` v1.0.0)
+   - Service Worker (`background/background.js`) handling message routing, storage, and REST API communication
+   - Content scripts (`content/moodle_detector.js`, `content/assignment_scanner.js`, `content/quiz_scanner.js`, `content/content.js`)
+   - Reusable UI components (`components/answer_editor.js`, `components/task_card.js`, `components/assignment_card.js`, etc.)
+   - Glassmorphic Popup UI (`popup/popup.html`, `popup/popup.js`, `popup/popup.css`)
+   - Full Desktop Dashboard (`dashboard/dashboard.html`, `dashboard/dashboard.js`, `dashboard/dashboard.css`)
+   - Assets & Extension Icons (`assets/icons/`)
+
+2. `StudyMateAI/` (INCOMPLETE / OBSOLETE PROTOTYPE)
+   - Manifest v0.1.0 prototype with no background service worker, icons, dashboard, or components
+   - Incomplete 27-line `content.js` consisting only of console log statements
+   - Static HTML mockup `popup/popup.html` with hardcoded counts and no JavaScript bindings/scripts
+
+## Dependency & Impact Assessment
+- Codebase Search: A complete scan of all backend modules (`backend/app.py`, `backend/ai/`, `backend/api/`, `backend/database/`, `backend/models/`, `backend/moodle/`, `backend/utils/`), test suites (`tests/`), and documentation confirmed that zero code files depend on or import from the `StudyMateAI/` subfolder.
+- The actual extension loaded into Chrome is located in `extension/` as referenced across `README.md`, `TUTORIAL.txt`, and `docs/architecture.md`.
+- **Verdict**: Removing `StudyMateAI/` does NOT break any part of the program or backend API.
+
+## Action Taken
+- The incomplete `StudyMateAI/` folder has been safely removed.
+- The repository structure is now clean and streamlined for GitHub.
