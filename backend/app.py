@@ -23,6 +23,7 @@ from api.quizzes import quizzes_bp
 from api.courses import courses_bp
 from api.ai import ai_bp
 from api.submissions import submissions_bp
+from api.resources import resources_bp
 
 logger = get_logger('studymate.app')
 
@@ -41,6 +42,7 @@ app.register_blueprint(courses_bp, url_prefix='/api/courses')
 app.register_blueprint(ai_bp, url_prefix='/api/ai')
 app.register_blueprint(submissions_bp, url_prefix='/api/submissions')
 app.register_blueprint(submissions_bp, name='solutions_bp', url_prefix='/api/solutions')
+app.register_blueprint(resources_bp, url_prefix='/api/resources')
 
 # Direct Root Routes for Backwards Compatibility
 @app.route('/api/health', methods=['GET'])
