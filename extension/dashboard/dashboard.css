@@ -354,6 +354,16 @@ body {
 .badge--failed { background: var(--accent-red-bg); color: var(--accent-red); }
 .badge--default { background: #f0f0f0; color: #888; }
 
+/* Resource Badges */
+.badge--pdf { background: #ffeae8; color: #eb4d4b; }
+.badge--doc { background: #e8f0fe; color: #2e86de; }
+.badge--ppt { background: #fef0e6; color: #e67e22; }
+.badge--txt { background: #f1f2f6; color: #57606f; }
+.badge--book { background: #e8f8f5; color: #16a085; }
+.badge--page { background: #f5eef8; color: #8e44ad; }
+.badge--url { background: #eaf2f8; color: #2980b9; }
+.badge--file { background: #f4f6f7; color: #7f8c8d; }
+
 .badge-pending { background: var(--accent-amber-bg); color: #d68910; }
 .badge-processing { background: #81ecec; color: #00cec9; }
 .badge-draft { background: #55efc4; color: #00b894; }

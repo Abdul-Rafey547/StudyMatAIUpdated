@@ -1,12 +1,17 @@
 /**
  * StudyMate AI – Dashboard Controller
  * Connects frontend views to background service worker and backend API.
+ * Manages tasks, study materials, AI review editor, and study workbench.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     let currentTasks = [];
+    let currentResources = [];
+    let currentCourses = [];
     let currentFilter = 'all';
     let selectedStudyAction = 'explain';
+    let selectedResourceAction = 'summarize';
+    let selectedResource = null;
     let activeEditor = null;
 
     const els = {
@@ -17,12 +22,26 @@ document.addEventListener('DOMContentLoaded', () => {
         recentGrid: document.getElementById('recentTasksGrid'),
         allTasksGrid: document.getElementById('allTasksGrid'),
         draftsGrid: document.getElementById('draftsGrid'),
+        resourcesGrid: document.getElementById('resourcesGrid'),
+        courseResourceFilter: document.getElementById('courseResourceFilter'),
+        typeResourceFilter: document.getElementById('typeResourceFilter'),
+        resourceStudyWorkbench: document.getElementById('resourceStudyWorkbench'),
+        workbenchDocTitle: document.getElementById('workbenchDocTitle'),
+        workbenchCourseName: document.getElementById('workbenchCourseName'),
+        closeWorkbenchBtn: document.getElementById('closeWorkbenchBtn'),
+        resourceToolBtns: document.querySelectorAll('.resource-tool-btn'),
+        resourceTopicInput: document.getElementById('resourceTopicInput'),
+        runResourceStudyBtn: document.getElementById('runResourceStudyBtn'),
+        workbenchResultArea: document.getElementById('workbenchResultArea'),
+        workbenchResultHeader: document.getElementById('workbenchResultHeader'),
+        workbenchResultText: document.getElementById('workbenchResultText'),
+        copyWorkbenchResultBtn: document.getElementById('copyWorkbenchResultBtn'),
         solutionEditorContainer: document.getElementById('solutionEditorContainer'),
         filterBtns: document.querySelectorAll('.filter-btn'),
         pendingOverviewCount: document.getElementById('pendingOverviewCount'),
         draftOverviewCount: document.getElementById('draftOverviewCount'),
         submittedOverviewCount: document.getElementById('submittedOverviewCount'),
-        totalOverviewCount: document.getElementById('totalOverviewCount'),
+        resourcesOverviewCount: document.getElementById('resourcesOverviewCount'),
         studyToolCards: document.querySelectorAll('.study-tool-card'),
         studyToolHeader: document.getElementById('studyToolHeader'),
         studyTopicInput: document.getElementById('studyTopicInput'),
@@ -39,6 +58,11 @@ document.addEventListener('DOMContentLoaded', () => {
         settingsAutoScan: document.getElementById('settingsAutoScan'),
         saveSettingsBtn: document.getElementById('saveSettingsBtn')
     };
+
+    // Check URL parameters for tab navigation (e.g. ?tab=materials)
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialTab = urlParams.get('tab') || 'overview';
+    switchTab(initialTab);
 
     // Navigation Tab Switching
     els.navLinks.forEach(link => {
@@ -62,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const titles = {
             'overview': 'Dashboard Overview',
             'tasks': 'All Academic Tasks',
+            'materials': 'Course Study Materials & Books',
             'review': 'Review & Edit AI Solutions',
             'study': 'AI Academic Study Tools',
             'history': 'Submission & Task History',
@@ -71,7 +96,9 @@ document.addEventListener('DOMContentLoaded', () => {
             els.pageTitle.textContent = titles[tabId] || 'Dashboard';
         }
 
-        if (tabId === 'history') {
+        if (tabId === 'materials') {
+            loadResources();
+        } else if (tabId === 'history') {
             loadHistory();
         } else if (tabId === 'settings') {
             loadSettings();
@@ -90,11 +117,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Refresh Data Button
     els.refreshBtn.addEventListener('click', () => {
-        StudyMateNotification.info('Refreshing tasks from LMS & backend...');
+        StudyMateNotification.info('Refreshing data from Moodle & backend...');
         loadTasks();
+        loadResources();
     });
 
-    // Load Tasks from Background / Backend
+    // Load Tasks
     async function loadTasks() {
         try {
             const res = await chrome.runtime.sendMessage({ type: 'GET_TASKS' });
@@ -112,39 +140,216 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Load Learning Resources (Bug 2)
+    async function loadResources() {
+        try {
+            const res = await chrome.runtime.sendMessage({ type: 'GET_RESOURCES' });
+            if (res && res.success && Array.isArray(res.resources)) {
+                currentResources = res.resources;
+                currentCourses = res.courses || [];
+            } else if (res && Array.isArray(res.resources)) {
+                currentResources = res.resources;
+            } else {
+                currentResources = [];
+            }
+            populateCourseFilter();
+            renderResourcesGrid();
+            if (els.resourcesOverviewCount) {
+                els.resourcesOverviewCount.textContent = currentResources.length;
+            }
+        } catch (e) {
+            console.error('Error loading resources:', e);
+            StudyMateNotification.error('Failed to load study materials.');
+        }
+    }
+
+    function populateCourseFilter() {
+        if (!els.courseResourceFilter) return;
+        const currentVal = els.courseResourceFilter.value;
+        els.courseResourceFilter.innerHTML = '<option value="all">All Courses</option>';
+
+        const coursesSeen = new Set();
+        currentResources.forEach(r => {
+            const cName = r.courseName || r.course || 'Course Resource';
+            if (!coursesSeen.has(cName)) {
+                coursesSeen.add(cName);
+                const opt = document.createElement('option');
+                opt.value = cName;
+                opt.textContent = cName;
+                if (cName === currentVal) opt.selected = true;
+                els.courseResourceFilter.appendChild(opt);
+            }
+        });
+    }
+
+    if (els.courseResourceFilter) {
+        els.courseResourceFilter.addEventListener('change', renderResourcesGrid);
+    }
+    if (els.typeResourceFilter) {
+        els.typeResourceFilter.addEventListener('change', renderResourcesGrid);
+    }
+
+    function renderResourcesGrid() {
+        if (!els.resourcesGrid) return;
+        els.resourcesGrid.innerHTML = '';
+
+        const courseFilter = els.courseResourceFilter ? els.courseResourceFilter.value : 'all';
+        const typeFilter = els.typeResourceFilter ? els.typeResourceFilter.value : 'all';
+
+        let filtered = currentResources;
+        if (courseFilter !== 'all') {
+            filtered = filtered.filter(r => (r.courseName || r.course) === courseFilter);
+        }
+        if (typeFilter !== 'all') {
+            filtered = filtered.filter(r => (r.resource_type || r.type || 'FILE').toUpperCase() === typeFilter);
+        }
+
+        if (filtered.length === 0) {
+            const msg = courseFilter !== 'all' ?
+                'No study materials were found in this course.' :
+                'No study materials discovered yet. Navigate to a Moodle course page and scan.';
+            els.resourcesGrid.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state__icon">📖</div>
+                    <div class="empty-state__title">${msg}</div>
+                    <div class="empty-state__desc">PDF books, lecture notes, Word documents, and pages will appear here once discovered.</div>
+                </div>`;
+            return;
+        }
+
+        filtered.forEach(resource => {
+            const card = ResourceCard.create(resource, {
+                onStudy: (r) => openResourceWorkbench(r),
+                onOpen: (r) => console.log('Opening resource:', r.title)
+            });
+            els.resourcesGrid.appendChild(card);
+        });
+    }
+
+    // Resource Study Workbench
+    function openResourceWorkbench(resource) {
+        selectedResource = resource;
+        if (!els.resourceStudyWorkbench) return;
+
+        if (els.workbenchDocTitle) els.workbenchDocTitle.textContent = resource.title || resource.file_name || 'Document';
+        if (els.workbenchCourseName) els.workbenchCourseName.textContent = resource.courseName || resource.course || 'Course Material';
+        if (els.workbenchResultArea) els.workbenchResultArea.style.display = 'none';
+        if (els.resourceTopicInput) els.resourceTopicInput.value = '';
+
+        els.resourceStudyWorkbench.style.display = 'block';
+        els.resourceStudyWorkbench.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    if (els.closeWorkbenchBtn) {
+        els.closeWorkbenchBtn.addEventListener('click', () => {
+            if (els.resourceStudyWorkbench) els.resourceStudyWorkbench.style.display = 'none';
+            selectedResource = null;
+        });
+    }
+
+    els.resourceToolBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            els.resourceToolBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedResourceAction = btn.getAttribute('data-action');
+        });
+    });
+
+    if (els.runResourceStudyBtn) {
+        els.runResourceStudyBtn.addEventListener('click', async () => {
+            if (!selectedResource) {
+                StudyMateNotification.warning('Please select a learning resource first.');
+                return;
+            }
+
+            const topic = els.resourceTopicInput ? els.resourceTopicInput.value.trim() : '';
+            const actionLabels = {
+                'summarize': 'Summarizing',
+                'explain': 'Explaining topic from',
+                'notes': 'Generating revision notes for',
+                'mcqs': 'Generating MCQs for',
+                'practice': 'Generating practice questions for',
+                'guide': 'Creating revision guide for'
+            };
+
+            StudyMateNotification.info(`${actionLabels[selectedResourceAction] || 'Processing'} "${selectedResource.title}" with AI...`);
+            els.runResourceStudyBtn.disabled = true;
+
+            try {
+                const res = await chrome.runtime.sendMessage({
+                    type: 'STUDY_RESOURCE',
+                    payload: {
+                        resource_id: selectedResource.id || selectedResource.resource_id,
+                        action: selectedResourceAction,
+                        topic: topic,
+                        text: selectedResource.extracted_text || ''
+                    }
+                });
+
+                if (res && res.success && res.material) {
+                    if (els.workbenchResultArea) els.workbenchResultArea.style.display = 'block';
+                    if (els.workbenchResultText) els.workbenchResultText.textContent = res.material;
+                    if (els.workbenchResultHeader) {
+                        els.workbenchResultHeader.textContent = `${res.action ? res.action.toUpperCase() : 'AI STUDY'} RESULT`;
+                    }
+                    StudyMateNotification.success(`AI Study material generated successfully!`);
+                } else if (res && res.ocr_required) {
+                    StudyMateNotification.warning('This document appears to be a scanned image-only PDF. Text extraction requires OCR.');
+                } else {
+                    StudyMateNotification.error(res?.error || 'Failed to generate study material.');
+                }
+            } catch (e) {
+                console.error('Resource study error:', e);
+                StudyMateNotification.error('Error communicating with AI service.');
+            } finally {
+                els.runResourceStudyBtn.disabled = false;
+            }
+        });
+    }
+
+    if (els.copyWorkbenchResultBtn) {
+        els.copyWorkbenchResultBtn.addEventListener('click', () => {
+            const text = els.workbenchResultText ? els.workbenchResultText.textContent : '';
+            if (text) {
+                navigator.clipboard.writeText(text);
+                StudyMateNotification.success('Study notes copied to clipboard!');
+            }
+        });
+    }
+
+    // Stats and Grids
     function updateStatsAndGrids() {
-        // Update stats
-        const pending = currentTasks.filter(t => t.status === 'PENDING' || t.status === 'Pending' || t.status === 'DISCOVERED');
+        // Pending: Only category 1 (actionable pending)
+        const pending = currentTasks.filter(t =>
+            (t.is_actionable_pending === 1 || t.isActionablePending === true || t.availability_status === 'AVAILABLE' || t.availabilityStatus === 'AVAILABLE') &&
+            t.status !== 'SUBMITTED' && t.status !== 'Submitted' && t.status !== 'COMPLETED' && t.status !== 'Closed' && t.status !== 'Unavailable'
+        );
         const drafts = currentTasks.filter(t => t.status === 'GENERATED' || t.status === 'Draft Ready' || t.status === 'REVIEW' || t.status === 'In Draft');
         const submitted = currentTasks.filter(t => t.status === 'SUBMITTED' || t.status === 'Submitted' || t.status === 'COMPLETED');
 
         if (els.pendingOverviewCount) els.pendingOverviewCount.textContent = pending.length;
         if (els.draftOverviewCount) els.draftOverviewCount.textContent = drafts.length;
         if (els.submittedOverviewCount) els.submittedOverviewCount.textContent = submitted.length;
-        if (els.totalOverviewCount) els.totalOverviewCount.textContent = currentTasks.length;
 
-        // Render Recent Tasks Grid (Overview)
-        renderRecentGrid();
-        // Render All Tasks Grid
+        renderRecentGrid(pending);
         renderAllTasksGrid();
-        // Render Drafts / Review Grid
         renderDraftsGrid();
     }
 
-    function renderRecentGrid() {
+    function renderRecentGrid(pendingTasks) {
         if (!els.recentGrid) return;
         els.recentGrid.innerHTML = '';
-        if (currentTasks.length === 0) {
+        if (!pendingTasks || pendingTasks.length === 0) {
             els.recentGrid.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state__icon">📚</div>
-                    <div class="empty-state__title">No tasks detected yet</div>
-                    <div class="empty-state__desc">Navigate to a Moodle assignment or quiz page and click "Scan for Assignments".</div>
+                    <div class="empty-state__title">No pending assignments are currently available in your Moodle courses.</div>
+                    <div class="empty-state__desc">Navigate to your Moodle course or assignment page and click "Scan for Assignments" in the popup.</div>
                 </div>`;
             return;
         }
 
-        const recent = currentTasks.slice(0, 4);
+        const recent = pendingTasks.slice(0, 4);
         recent.forEach(task => {
             const card = TaskCard.create(task, {
                 showActions: true,
@@ -160,15 +365,23 @@ document.addEventListener('DOMContentLoaded', () => {
         els.allTasksGrid.innerHTML = '';
 
         let filtered = currentTasks;
-        if (currentFilter !== 'all') {
+        if (currentFilter === 'PENDING') {
+            filtered = currentTasks.filter(t =>
+                (t.is_actionable_pending === 1 || t.isActionablePending === true || t.availability_status === 'AVAILABLE' || t.availabilityStatus === 'AVAILABLE') &&
+                t.status !== 'SUBMITTED' && t.status !== 'Submitted' && t.status !== 'COMPLETED'
+            );
+        } else if (currentFilter !== 'all') {
             filtered = currentTasks.filter(t => (t.type || 'ASSIGNMENT').toUpperCase() === currentFilter.toUpperCase());
         }
 
         if (filtered.length === 0) {
+            const emptyMsg = currentFilter === 'PENDING' ?
+                'No pending assignments are currently available in your Moodle courses.' :
+                `No ${currentFilter.toLowerCase()} tasks found`;
             els.allTasksGrid.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state__icon">🔍</div>
-                    <div class="empty-state__title">No ${currentFilter === 'all' ? '' : currentFilter.toLowerCase()} tasks found</div>
+                    <div class="empty-state__title">${emptyMsg}</div>
                     <div class="empty-state__desc">Scan Moodle to discover assignments and quizzes.</div>
                 </div>`;
             return;
@@ -289,32 +502,11 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             onRegenerate: async (t) => {
                 await handleSolveTask(t);
-            },
-            onSubmit: async (t, sol) => {
-                StudyMateNotification.info('Submitting solution to Moodle...');
-                try {
-                    const res = await chrome.runtime.sendMessage({
-                        type: 'SUBMIT_SOLUTION',
-                        payload: {
-                            task_id: t.id || t.task_id,
-                            solution_id: sol.solution_id || sol.id
-                        }
-                    });
-                    if (res && res.success) {
-                        StudyMateNotification.success('Task successfully submitted to Moodle!');
-                        await loadTasks();
-                        openTaskInReview(t);
-                    } else {
-                        StudyMateNotification.error(res?.error || 'Submission failed.');
-                    }
-                } catch (e) {
-                    StudyMateNotification.error('Error during submission.');
-                }
             }
         });
     }
 
-    // Study Tools
+    // Study Tools (General Topic)
     els.studyToolCards.forEach(card => {
         card.addEventListener('click', () => {
             els.studyToolCards.forEach(c => c.style.borderColor = 'var(--border)');
@@ -440,13 +632,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (els.settingsAutoSubmit) els.settingsAutoSubmit.checked = !!config.autoSubmit;
         if (els.settingsAutoScan) els.settingsAutoScan.checked = config.autoScan !== false;
 
-        // Set placeholder based on initial provider
         if (els.settingsAiProvider && els.settingsAiModel) {
             const currentProvider = els.settingsAiProvider.value;
             els.settingsAiModel.placeholder = PROVIDER_PLACEHOLDERS[currentProvider] || 'e.g. gemini-1.5-flash';
         }
 
-        // Fetch backend provider details to enrich provider selector
         try {
             const res = await chrome.runtime.sendMessage({ type: 'GET_AI_PROVIDERS' });
             if (res && res.success && Array.isArray(res.providers) && els.settingsAiProvider) {
@@ -501,4 +691,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial Load
     loadTasks();
+    loadResources();
 });

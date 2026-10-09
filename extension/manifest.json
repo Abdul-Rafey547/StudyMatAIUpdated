@@ -45,6 +45,8 @@
         "content/moodle_detector.js",
         "content/assignment_scanner.js",
         "content/quiz_scanner.js",
+        "content/resource_scanner.js",
+        "content/submission_helper.js",
         "content/content.js"
       ],
       "run_at": "document_idle"

@@ -21,7 +21,11 @@
         </button>
         <button class="nav-link" data-target="tasks">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-            All Tasks
+            Pending Tasks
+        </button>
+        <button class="nav-link" data-target="materials">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            Study Materials
         </button>
         <button class="nav-link" data-target="review">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -29,7 +33,7 @@
         </button>
         <button class="nav-link" data-target="study">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            Study Tools
+            AI Tutor &amp; Tools
         </button>
         <button class="nav-link" data-target="history">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -62,7 +66,7 @@
         <section id="overview" class="tab-content active">
             <div class="stats-row">
                 <div class="stat-card stat-card--pending">
-                    <div class="stat-card__label">Pending Tasks</div>
+                    <div class="stat-card__label">Pending Actionable</div>
                     <div class="stat-card__value" id="pendingOverviewCount">0</div>
                 </div>
                 <div class="stat-card stat-card--due">
@@ -74,30 +78,101 @@
                     <div class="stat-card__value" id="submittedOverviewCount">0</div>
                 </div>
                 <div class="stat-card stat-card--total">
-                    <div class="stat-card__label">Total Tracked</div>
-                    <div class="stat-card__value" id="totalOverviewCount">0</div>
+                    <div class="stat-card__label">Study Materials</div>
+                    <div class="stat-card__value" id="resourcesOverviewCount">0</div>
                 </div>
             </div>
 
-            <h3 style="margin-bottom: 16px;">Recent Academic Tasks</h3>
+            <h3 style="margin-bottom: 16px;">Actionable Pending Tasks</h3>
             <div class="task-grid" id="recentTasksGrid">
                 <div class="empty-state">
                     <div class="empty-state__icon">📚</div>
-                    <div class="empty-state__title">No tasks detected yet</div>
-                    <div class="empty-state__desc">Navigate to a Moodle course, assignment, or quiz page and click "Scan for Assignments" in the extension popup.</div>
+                    <div class="empty-state__title">No pending assignments are currently available in your Moodle courses.</div>
+                    <div class="empty-state__desc">Navigate to your Moodle course or assignment page and click "Scan for Assignments" in the popup.</div>
                 </div>
             </div>
         </section>
 
         <!-- All Tasks Tab -->
         <section id="tasks" class="tab-content">
-            <div style="display: flex; gap: 12px; margin-bottom: 20px;">
-                <button class="btn btn-secondary filter-btn active" data-filter="all">All</button>
-                <button class="btn btn-secondary filter-btn" data-filter="ASSIGNMENT">Assignments</button>
-                <button class="btn btn-secondary filter-btn" data-filter="QUIZ">Quizzes</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn btn-secondary filter-btn active" data-filter="all">All</button>
+                    <button class="btn btn-secondary filter-btn" data-filter="PENDING">Pending Actionable</button>
+                    <button class="btn btn-secondary filter-btn" data-filter="ASSIGNMENT">Assignments</button>
+                    <button class="btn btn-secondary filter-btn" data-filter="QUIZ">Quizzes</button>
+                </div>
             </div>
             <div class="task-grid" id="allTasksGrid">
                 <!-- Injected via JS -->
+            </div>
+        </section>
+
+        <!-- Study Materials Tab (BUG 2) -->
+        <section id="materials" class="tab-content">
+            <div class="card" style="margin-bottom: 20px;">
+                <h2>Course Study Materials &amp; Books</h2>
+                <p style="color: var(--text-secondary); margin-top: 4px;">Explore PDF books, lecture notes, Word documents, and Moodle learning materials uploaded across your courses.</p>
+                
+                <div style="display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;">
+                    <select id="courseResourceFilter" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg, #fff); font-size: 13px;">
+                        <option value="all">All Courses</option>
+                    </select>
+                    <select id="typeResourceFilter" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg, #fff); font-size: 13px;">
+                        <option value="all">All File Types</option>
+                        <option value="PDF">PDF Books &amp; Notes</option>
+                        <option value="DOCX">Word Documents</option>
+                        <option value="BOOK">Moodle Books</option>
+                        <option value="PAGE">Moodle Pages</option>
+                        <option value="PPTX">Presentations</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Resource Study Workbench (when active) -->
+            <div id="resourceStudyWorkbench" class="card" style="display: none; margin-bottom: 24px; border: 2px solid #6366f1;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                    <div>
+                        <span style="background: rgba(99,102,241,0.1); color: #6366f1; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase;">AI Study Workbench</span>
+                        <h2 id="workbenchDocTitle" style="margin-top: 6px; font-size: 18px;">Document Title</h2>
+                        <p id="workbenchCourseName" style="color: var(--text-secondary); font-size: 13px; margin: 2px 0 0 0;">Course Name</p>
+                    </div>
+                    <button id="closeWorkbenchBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;">&times; Close</button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 16px 0;">
+                    <button class="btn btn-secondary resource-tool-btn active" data-action="summarize">📑 Summarize</button>
+                    <button class="btn btn-secondary resource-tool-btn" data-action="explain">💡 Explain Topic</button>
+                    <button class="btn btn-secondary resource-tool-btn" data-action="notes">📝 Revision Notes</button>
+                    <button class="btn btn-secondary resource-tool-btn" data-action="mcqs">🧪 Practice MCQs</button>
+                    <button class="btn btn-secondary resource-tool-btn" data-action="practice">❓ Short Answer Qs</button>
+                    <button class="btn btn-secondary resource-tool-btn" data-action="guide">📖 Revision Guide</button>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <input type="text" id="resourceTopicInput" placeholder="Optional: Enter specific topic or question from this document..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px;">
+                </div>
+
+                <button class="btn btn-primary" id="runResourceStudyBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    Study with AI
+                </button>
+
+                <div id="workbenchResultArea" style="display: none; margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h3 id="workbenchResultHeader">Generated Study Material</h3>
+                        <button id="copyWorkbenchResultBtn" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;">📋 Copy</button>
+                    </div>
+                    <div class="study-result" id="workbenchResultText" style="white-space: pre-wrap; font-size: 13px; line-height: 1.6; background: var(--card-bg, #f8fafc); padding: 16px; border-radius: 8px; border: 1px solid var(--border-color);"></div>
+                </div>
+            </div>
+
+            <div class="task-grid" id="resourcesGrid">
+                <div class="empty-state">
+                    <div class="empty-state__icon">📖</div>
+                    <div class="empty-state__title">No study materials discovered yet</div>
+                    <div class="empty-state__desc">Navigate to a Moodle course page and scan to discover learning materials.</div>
+                </div>
             </div>
         </section>
 
@@ -245,6 +320,7 @@
     <script src="../components/task_card.js"></script>
     <script src="../components/assignment_card.js"></script>
     <script src="../components/quiz_card.js"></script>
+    <script src="../components/resource_card.js"></script>
     <script src="../components/answer_editor.js"></script>
     <!-- Load Dashboard Controller -->
     <script src="dashboard.js"></script>

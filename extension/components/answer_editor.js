@@ -1,7 +1,7 @@
 /**
  * StudyMate AI - Answer Editor Component
  * Full answer review, editing, and approval interface.
- * Implements the human-in-the-loop review workflow.
+ * Implements the human-in-the-loop review and truthful submission workflow.
  */
 
 class AnswerEditor {
@@ -91,6 +91,69 @@ class AnswerEditor {
                     </button>
                 </div>` : ''}
             </div>
+            
+            <!-- Submission Confirmation & Format Selection Modal -->
+            <div id="submissionModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+                <div style="background: #ffffff; width: 500px; max-width: 90%; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); overflow: hidden; border: 1px solid #e2e8f0; color: #1e293b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                    <div style="background: #6366f1; color: #ffffff; padding: 16px 20px; font-weight: 600; font-size: 16px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>🎓 Moodle Assignment Submission Review</span>
+                        <span id="closeModalBtn" style="cursor: pointer; font-size: 20px; line-height: 1;">&times;</span>
+                    </div>
+                    
+                    <div style="padding: 20px;">
+                        <div style="margin-bottom: 16px;">
+                            <label style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px;">Assignment Title</label>
+                            <div style="font-weight: 600; font-size: 14px; margin-top: 2px;">${this.escapeHtml(this.task.title || 'Assignment')}</div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                            <div>
+                                <label style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px;">Course</label>
+                                <div style="font-size: 13px; margin-top: 2px;">${this.escapeHtml(this.task.courseName || this.task.course || 'General Course')}</div>
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px;">Word Count</label>
+                                <div style="font-size: 13px; margin-top: 2px;">${this.countWords(answer)} words (Approved)</div>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                            <label style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 6px;">Select Assignment File Format:</label>
+                            <div style="display: flex; gap: 16px;">
+                                <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+                                    <input type="radio" name="modalFileFormat" value="DOCX" checked>
+                                    <span><strong>DOCX</strong> (Microsoft Word Document)</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+                                    <input type="radio" name="modalFileFormat" value="TXT">
+                                    <span><strong>TXT</strong> (Plain Text Document)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <button id="modalDownloadBtn" type="button" style="width: 100%; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 10px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                <span>📥 Download &amp; Inspect File Before Submission</span>
+                            </button>
+                        </div>
+
+                        <div style="background: #eef2ff; border-left: 4px solid #6366f1; padding: 10px 12px; font-size: 12px; color: #3730a3; margin-bottom: 16px; line-height: 1.4;">
+                            ℹ️ <strong>Submission Process:</strong> StudyMate AI will generate your approved file, navigate to Moodle, and prepare the submission. After saving changes, submission status will be verified directly from Moodle.
+                        </div>
+
+                        <div id="modalStatusArea" style="display: none; margin-bottom: 16px; padding: 10px; border-radius: 6px; font-size: 12px;"></div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                            <button id="modalCancelBtn" type="button" style="background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer;">
+                                Cancel
+                            </button>
+                            <button id="modalProceedBtn" type="button" style="background: #6366f1; border: none; color: #ffffff; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                                <span>Proceed to Moodle Submission &rarr;</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         `;
         
         this.bindEvents();
@@ -159,9 +222,169 @@ class AnswerEditor {
         }
         
         const submitBtn = this.container.querySelector('#submitBtn');
-        if (submitBtn) {
+        const modal = this.container.querySelector('#submissionModal');
+        const closeModalBtn = this.container.querySelector('#closeModalBtn');
+        const modalCancelBtn = this.container.querySelector('#modalCancelBtn');
+        const modalDownloadBtn = this.container.querySelector('#modalDownloadBtn');
+        const modalProceedBtn = this.container.querySelector('#modalProceedBtn');
+        const modalStatusArea = this.container.querySelector('#modalStatusArea');
+
+        if (submitBtn && modal) {
             submitBtn.addEventListener('click', () => {
-                this.onSubmit(this.task, this.solution);
+                modal.style.display = 'flex';
+                if (modalStatusArea) modalStatusArea.style.display = 'none';
+            });
+        }
+
+        const hideModal = () => {
+            if (modal) modal.style.display = 'none';
+        };
+
+        if (closeModalBtn) closeModalBtn.addEventListener('click', hideModal);
+        if (modalCancelBtn) modalCancelBtn.addEventListener('click', hideModal);
+
+        if (modalDownloadBtn) {
+            modalDownloadBtn.addEventListener('click', async () => {
+                const formatRadio = this.container.querySelector('input[name="modalFileFormat"]:checked');
+                const format = formatRadio ? formatRadio.value : 'DOCX';
+                modalDownloadBtn.disabled = true;
+                modalDownloadBtn.innerText = 'Generating file...';
+
+                try {
+                    const res = await chrome.runtime.sendMessage({
+                        type: 'GENERATE_SUBMISSION_FILE',
+                        payload: {
+                            task_id: this.task.id || this.task.task_id,
+                            solution_id: this.solution.solution_id || this.solution.id,
+                            format: format,
+                            answer: textarea ? textarea.value : ''
+                        }
+                    });
+
+                    if (res && res.success && res.data_url) {
+                        const a = document.createElement('a');
+                        a.href = res.data_url;
+                        a.download = res.file_name || `Solution.${format.toLowerCase()}`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        if (window.StudyMateNotification) {
+                            window.StudyMateNotification.success(`Downloaded ${res.file_name}`);
+                        }
+                    } else {
+                        if (window.StudyMateNotification) {
+                            window.StudyMateNotification.error(res?.error || 'Failed to generate file.');
+                        }
+                    }
+                } catch (e) {
+                    console.error('File download error:', e);
+                } finally {
+                    modalDownloadBtn.disabled = false;
+                    modalDownloadBtn.innerHTML = '<span>📥 Download &amp; Inspect File Before Submission</span>';
+                }
+            });
+        }
+
+        if (modalProceedBtn) {
+            modalProceedBtn.addEventListener('click', async () => {
+                const formatRadio = this.container.querySelector('input[name="modalFileFormat"]:checked');
+                const format = formatRadio ? formatRadio.value : 'DOCX';
+                
+                modalProceedBtn.disabled = true;
+                modalProceedBtn.innerHTML = '<span>Preparing Moodle Submission...</span>';
+                if (modalStatusArea) {
+                    modalStatusArea.style.display = 'block';
+                    modalStatusArea.style.background = '#f1f5f9';
+                    modalStatusArea.style.color = '#334155';
+                    modalStatusArea.innerHTML = '⏳ Generating assignment file and opening Moodle submission interface...';
+                }
+
+                try {
+                    const res = await chrome.runtime.sendMessage({
+                        type: 'PREPARE_SUBMISSION',
+                        payload: {
+                            task_id: this.task.id || this.task.task_id,
+                            solution_id: this.solution.solution_id || this.solution.id,
+                            moodle_url: this.task.moodle_url || this.task.url,
+                            format: format,
+                            answer: textarea ? textarea.value : ''
+                        }
+                    });
+
+                    if (res && res.success) {
+                        if (modalStatusArea) {
+                            modalStatusArea.style.background = '#dbeafe';
+                            modalStatusArea.style.color = '#1e40af';
+                            modalStatusArea.innerHTML = `
+                                <strong>File Attached to Moodle!</strong><br>
+                                File: <code>${res.fileName}</code><br>
+                                <span style="margin-top: 4px; display: block;">Click <strong>Save changes</strong> on your Moodle tab, then click Verify below.</span>
+                            `;
+                        }
+                        
+                        modalProceedBtn.innerHTML = '<span>🔍 Verify Moodle Submission Status</span>';
+                        modalProceedBtn.disabled = false;
+
+                        // Switch click handler to verification
+                        modalProceedBtn.onclick = async () => {
+                            modalProceedBtn.disabled = true;
+                            modalProceedBtn.innerHTML = '<span>Verifying with Moodle LMS...</span>';
+
+                            const vRes = await chrome.runtime.sendMessage({
+                                type: 'VERIFY_SUBMISSION',
+                                payload: {
+                                    task_id: this.task.id || this.task.task_id,
+                                    solution_id: this.solution.solution_id || this.solution.id,
+                                    file_name: res.fileName,
+                                    file_format: format
+                                }
+                            });
+
+                            if (vRes && vRes.verified) {
+                                if (modalStatusArea) {
+                                    modalStatusArea.style.background = '#dcfce7';
+                                    modalStatusArea.style.color = '#166534';
+                                    modalStatusArea.innerHTML = `<strong>✅ Assignment submitted successfully.</strong> Moodle has confirmed your submission.`;
+                                }
+                                if (window.StudyMateNotification) {
+                                    window.StudyMateNotification.success('Assignment submitted successfully! Moodle has confirmed your submission.');
+                                }
+                                this.solution.status = 'SUBMITTED';
+                                this.task.status = 'Submitted';
+                                setTimeout(hideModal, 2000);
+                            } else if (vRes && vRes.is_draft) {
+                                if (modalStatusArea) {
+                                    modalStatusArea.style.background = '#fef3c7';
+                                    modalStatusArea.style.color = '#92400e';
+                                    modalStatusArea.innerHTML = `<strong>⚠️ Draft Uploaded:</strong> Your file has been uploaded as a draft, but the assignment has not been finally submitted. Complete the remaining step in Moodle.`;
+                                }
+                                modalProceedBtn.disabled = false;
+                                modalProceedBtn.innerHTML = '<span>Check Again</span>';
+                            } else {
+                                if (modalStatusArea) {
+                                    modalStatusArea.style.background = '#fee2e2';
+                                    modalStatusArea.style.color = '#991b1b';
+                                    modalStatusArea.innerHTML = `<strong>Submission could not be verified.</strong> Please check Moodle before assuming your assignment was submitted.`;
+                                }
+                                modalProceedBtn.disabled = false;
+                                modalProceedBtn.innerHTML = '<span>Check Again</span>';
+                            }
+                        };
+
+                    } else {
+                        if (modalStatusArea) {
+                            modalStatusArea.style.background = '#fee2e2';
+                            modalStatusArea.style.color = '#991b1b';
+                            modalStatusArea.innerHTML = `Error preparing submission: ${res?.error || 'Unknown error'}`;
+                        }
+                        modalProceedBtn.disabled = false;
+                        modalProceedBtn.innerHTML = '<span>Retry Submission</span>';
+                    }
+                } catch (e) {
+                    console.error('Submission error:', e);
+                    modalProceedBtn.disabled = false;
+                    modalProceedBtn.innerHTML = '<span>Proceed to Moodle Submission &rarr;</span>';
+                }
             });
         }
     }

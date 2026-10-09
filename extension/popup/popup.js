@@ -1,6 +1,7 @@
 /**
  * StudyMate AI – Popup Controller
  * Manages the extension popup UI, live stats, Moodle detection status, and quick scan actions.
+ * Only displays verified actionable pending assignments.
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -25,7 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initPopup();
 
     async function initPopup() {
-        const storage = await chrome.storage.local.get(['config', 'tasks', 'history', 'currentPage']);
+        const storage = await chrome.storage.local.get(['config', 'tasks', 'resources', 'history', 'currentPage']);
         const config = storage.config || { autoSubmit: false };
         const tasks = storage.tasks || [];
 
@@ -34,7 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             autoSubmitToggle.checked = !!config.autoSubmit;
         }
 
-        // 2. Render Live Stats & Tasks
+        // 2. Render Live Stats & Verified Actionable Tasks
         renderStatsAndTasks(tasks);
 
         // 3. Check Current Active Tab for Moodle
@@ -73,7 +74,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function renderStatsAndTasks(tasks) {
-        const pending = tasks.filter(t => t.status === 'PENDING' || t.status === 'Pending' || t.status === 'DISCOVERED');
+        // Strict Category 1 pending filter: must be verified available and actionable
+        const pending = tasks.filter(t =>
+            (t.is_actionable_pending === 1 || t.isActionablePending === true || t.availability_status === 'AVAILABLE' || t.availabilityStatus === 'AVAILABLE') &&
+            t.status !== 'SUBMITTED' && t.status !== 'Submitted' && t.status !== 'COMPLETED' && t.status !== 'Closed' && t.status !== 'Unavailable'
+        );
         const drafts = tasks.filter(t => t.status === 'GENERATED' || t.status === 'Draft Ready' || t.status === 'REVIEW' || t.status === 'In Draft');
         const submitted = tasks.filter(t => t.status === 'SUBMITTED' || t.status === 'Submitted' || t.status === 'COMPLETED');
 
@@ -84,18 +89,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!taskList) return;
         taskList.innerHTML = '';
 
-        if (tasks.length === 0) {
+        if (pending.length === 0) {
             taskList.innerHTML = `
                 <div style="text-align: center; padding: 24px 12px; color: var(--text-secondary); font-size: 13px;">
-                    <p style="font-size: 24px; margin-bottom: 6px;">📖</p>
-                    <p>No tasks scanned yet.</p>
-                    <p style="font-size: 11px; margin-top: 4px; opacity: 0.8;">Click "Scan for Assignments" above to scan the current page.</p>
+                    <p style="font-size: 24px; margin-bottom: 6px;">📚</p>
+                    <p style="font-weight: 500;">No pending assignments are currently available in your Moodle courses.</p>
+                    <p style="font-size: 11px; margin-top: 4px; opacity: 0.8;">Click "Scan for Assignments" to inspect the current page.</p>
                 </div>
             `;
             return;
         }
 
-        const previewTasks = tasks.slice(0, 3);
+        const previewTasks = pending.slice(0, 3);
         previewTasks.forEach(task => {
             const item = document.createElement('div');
             item.className = 'task';
@@ -131,7 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
 
             item.addEventListener('click', () => {
-                chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD' });
+                chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD', tab: 'review' });
             });
 
             taskList.appendChild(item);
@@ -236,7 +241,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     scanBtn.style.background = 'var(--accent-green)';
                     await initPopup();
                 } else {
-                    scanBtn.innerHTML = res?.message || '! Scan Complete';
+                    scanBtn.innerHTML = res?.error || '! Scan Complete';
                 }
             } catch (e) {
                 console.error(e);
@@ -272,13 +277,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Dashboard navigation buttons
     if (settingsBtn) {
         settingsBtn.addEventListener('click', () => {
-            chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD' });
+            chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD', tab: 'settings' });
         });
     }
 
     if (viewAllBtn) {
         viewAllBtn.addEventListener('click', () => {
-            chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD' });
+            chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD', tab: 'tasks' });
         });
     }
 
@@ -288,8 +293,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             navItems.forEach(i => i.classList.remove('active'));
             item.classList.add('active');
             const tab = item.getAttribute('data-tab');
-            if (tab === 'tasks' || tab === 'agent' || tab === 'history') {
-                chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD' });
+            if (tab === 'tasks') {
+                chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD', tab: 'tasks' });
+            } else if (tab === 'agent') {
+                chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD', tab: 'study' });
+            } else if (tab === 'history') {
+                chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD', tab: 'history' });
             }
         });
     });
