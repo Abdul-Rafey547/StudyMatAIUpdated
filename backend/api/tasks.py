@@ -206,8 +206,18 @@ def get_tasks():
         """
         params = []
 
+        enrolled_only = request.args.get('enrolled_only', '').lower() in ('true', '1', 'yes')
+        if enrolled_only:
+            c.execute("SELECT course_id FROM courses WHERE moodle_course_id IS NOT NULL")
+            enrolled_cids = [r['course_id'] for r in c.fetchall()]
+            if enrolled_cids:
+                query += f" AND t.course_id IN ({','.join('?' for _ in enrolled_cids)})"
+                params.extend(enrolled_cids)
+
         if pending_only:
             query += " AND t.is_actionable_pending = 1 AND t.status NOT IN ('SUBMITTED', 'COMPLETED', 'CLOSED', 'UNAVAILABLE', 'ARCHIVED')"
+        else:
+            query += " AND (t.availability_status != 'UNAVAILABLE' OR t.is_actionable_pending = 1)"
 
         if course_id:
             query += " AND t.course_id = ?"

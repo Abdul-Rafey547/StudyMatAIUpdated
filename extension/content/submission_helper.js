@@ -147,7 +147,8 @@ window.StudyMate.submissionHelper = {
                 }
 
                 // Show floating helper overlay to guide the student directly on the Moodle page
-                window.StudyMate.submissionHelper.renderFloatingHelper(file, fileName, data_url || `data:${mimeType};base64,${fileBase64}`, answerText);
+                const downloadUrl = payload.data_url || (fileBase64 ? `data:${mimeType};base64,${fileBase64}` : '');
+                window.StudyMate.submissionHelper.renderFloatingHelper(file, fileName, downloadUrl, answerText);
 
             } catch (e) {
                 console.error('[StudyMate AI] Error attaching file:', e);

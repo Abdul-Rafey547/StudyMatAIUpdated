@@ -332,13 +332,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Stats and Grids
     function updateStatsAndGrids() {
+        const activeTasks = currentTasks.filter(t => t.availability_status !== 'UNAVAILABLE' && t.availabilityStatus !== 'UNAVAILABLE');
         // Pending: Only category 1 (actionable pending)
-        const pending = currentTasks.filter(t =>
-            (t.is_actionable_pending === 1 || t.isActionablePending === true || t.availability_status === 'AVAILABLE' || t.availabilityStatus === 'AVAILABLE') &&
+        const pending = activeTasks.filter(t =>
+            (t.is_actionable_pending === 1 || t.isActionablePending === true) &&
             t.status !== 'SUBMITTED' && t.status !== 'Submitted' && t.status !== 'COMPLETED' && t.status !== 'Closed' && t.status !== 'Unavailable'
         );
-        const drafts = currentTasks.filter(t => t.status === 'GENERATED' || t.status === 'Draft Ready' || t.status === 'REVIEW' || t.status === 'In Draft');
-        const submitted = currentTasks.filter(t => t.status === 'SUBMITTED' || t.status === 'Submitted' || t.status === 'COMPLETED');
+        const drafts = activeTasks.filter(t => t.status === 'GENERATED' || t.status === 'Draft Ready' || t.status === 'REVIEW' || t.status === 'In Draft');
+        const submitted = activeTasks.filter(t => t.status === 'SUBMITTED' || t.status === 'Submitted' || t.status === 'COMPLETED');
 
         if (els.pendingOverviewCount) els.pendingOverviewCount.textContent = pending.length;
         if (els.draftOverviewCount) els.draftOverviewCount.textContent = drafts.length;
@@ -377,14 +378,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!els.allTasksGrid) return;
         els.allTasksGrid.innerHTML = '';
 
-        let filtered = currentTasks;
+        let filtered = currentTasks.filter(t => t.availability_status !== 'UNAVAILABLE' && t.availabilityStatus !== 'UNAVAILABLE');
         if (currentFilter === 'PENDING') {
-            filtered = currentTasks.filter(t =>
-                (t.is_actionable_pending === 1 || t.isActionablePending === true || t.availability_status === 'AVAILABLE' || t.availabilityStatus === 'AVAILABLE') &&
+            filtered = filtered.filter(t =>
+                (t.is_actionable_pending === 1 || t.isActionablePending === true) &&
                 t.status !== 'SUBMITTED' && t.status !== 'Submitted' && t.status !== 'COMPLETED'
             );
         } else if (currentFilter !== 'all') {
-            filtered = currentTasks.filter(t => (t.type || 'ASSIGNMENT').toUpperCase() === currentFilter.toUpperCase());
+            filtered = filtered.filter(t => (t.type || 'ASSIGNMENT').toUpperCase() === currentFilter.toUpperCase());
         }
 
         if (filtered.length === 0) {
@@ -415,9 +416,10 @@ document.addEventListener('DOMContentLoaded', () => {
         els.draftsGrid.innerHTML = '';
 
         const reviewable = currentTasks.filter(t =>
-            t.status === 'GENERATED' || t.status === 'Draft Ready' ||
+            (t.availability_status !== 'UNAVAILABLE' && t.availabilityStatus !== 'UNAVAILABLE') &&
+            (t.status === 'GENERATED' || t.status === 'Draft Ready' ||
             t.status === 'REVIEW' || t.status === 'In Draft' ||
-            t.status === 'APPROVED' || t.solution
+            t.status === 'APPROVED' || t.solution)
         );
 
         if (reviewable.length === 0) {

@@ -286,23 +286,28 @@ Goal: Ensure that refreshing or rescanning from Moodle never wipes user work.
    - StudyMate AI preserves all user-generated work, drafts, and notes across scans.
 
 --------------------------------------------------------------------------------
-TEST 9: TEST MOODLE SUBMISSION INJECTION & DOCX EXPORT
+TEST 9: DIRECT MOODLE ASSIGNMENT SUBMISSION & UPLOAD VIA REST API
 --------------------------------------------------------------------------------
-Goal: Submit the approved solution to Moodle or export it as a formatted document.
+Goal: Upload and submit the approved solution directly to Moodle via REST Web Services.
 
-Method A – Direct Browser Injection into Moodle Editor:
-1. Open your Moodle assignment submission page in Chrome:
-   (e.g., http://moodle.local/mod/assign/view.php?id=...&action=editsubmission)
-2. Open the StudyMate AI popup or dashboard.
-3. On your approved task, click "Submit to Moodle".
-4. StudyMate AI automatically detects the active Moodle editor 
-   (Atto, TinyMCE, or standard HTML textarea) and injects your approved draft!
-5. Review the text in Moodle, click "Save changes" in Moodle to finalize.
-
-Method B – Formatted DOCX File Export:
-1. In the Review Solutions tab, click "Export to Word (.docx)".
-2. StudyMate AI formats your solution with professional academic headings, 
-   code blocks, and metadata, downloading a ready-to-submit `.docx` document!
+Primary Method – Direct Moodle REST Web Services File Upload & Submission:
+1. In the Review Solutions editor (or Dashboard), verify your solution is "APPROVED".
+2. Click the green "Submit to Moodle" button.
+3. The Submission Review modal will open:
+   - Select your desired assignment document format: **DOCX** (Word) or **TXT**.
+   - (Optional) Click "Download & Inspect File" to review the formatted document locally.
+4. Click "Proceed to Moodle Submission ->":
+   - StudyMate AI automatically generates the formatted academic document with title,
+     course header, timestamp, and solution.
+   - It securely uploads the file directly to Moodle's draft area via `webservice/upload.php`.
+   - It invokes `mod_assign_save_submission` on Moodle to attach the file and save the submission.
+   - It calls `mod_assign_get_submission_status` to verify that Moodle has confirmed receipt.
+   - The modal turns green with: "✅ Assignment Successfully Submitted to Moodle!".
+   - StudyMate AI automatically opens or focuses your Moodle assignment tab so you can
+     visibly verify your submitted file and status ("Submitted for grading") in Moodle!
+5. In the Dashboard:
+   - The task moves from "Pending Actionable" to "Submitted" (stat count increments).
+   - The task is recorded in the "Task History" tab with submission timestamp and filename.
 
 --------------------------------------------------------------------------------
 TEST 10: TEST AI STUDY TOOLS (EXPLAIN, SUMMARIZE, NOTES, PRACTICE)

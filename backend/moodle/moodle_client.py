@@ -6,6 +6,7 @@ Handles authentication, error mapping, timeouts, token security, and response no
 import urllib.request
 import urllib.parse
 import json
+import uuid
 from typing import Dict, List, Optional, Any
 from config import Config
 from utils.logger import get_logger
@@ -409,3 +410,93 @@ class MoodleClient(BaseLMSConnector):
         except Exception as e:
             logger.error(f"[Moodle API] Error downloading resource content from {file_url_or_id}: {e}")
             return None
+
+    def upload_file_to_draft_area(self, file_data: bytes, file_name: str, item_id: int = 0) -> Optional[int]:
+        """
+        Upload binary file to Moodle user draft file area via webservice/upload.php.
+        Returns the draft itemid for use in mod_assign_save_submission.
+        """
+        if not self.is_configured() or not file_data:
+            return None
+
+        upload_url = f"{self.base_url}/webservice/upload.php?token={self.token}"
+        if item_id:
+            upload_url += f"&itemid={item_id}"
+
+        boundary = '----StudyMateBoundary' + uuid.uuid4().hex
+        header_part = (
+            f'--{boundary}\r\n'
+            f'Content-Disposition: form-data; name="file_1"; filename="{file_name}"\r\n'
+            f'Content-Type: application/octet-stream\r\n\r\n'
+        ).encode('utf-8')
+        footer_part = f'\r\n--{boundary}--\r\n'.encode('utf-8')
+        body = header_part + file_data + footer_part
+
+        try:
+            req = urllib.request.Request(
+                upload_url,
+                data=body,
+                headers={
+                    'Content-Type': f'multipart/form-data; boundary={boundary}',
+                    'User-Agent': 'StudyMate-AI/1.0'
+                }
+            )
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                res_body = resp.read().decode('utf-8')
+                parsed = json.loads(res_body)
+                if isinstance(parsed, list) and len(parsed) > 0 and 'itemid' in parsed[0]:
+                    return int(parsed[0]['itemid'])
+                elif isinstance(parsed, dict) and 'error' in parsed:
+                    logger.warning(f"[Moodle API] Upload error: {parsed.get('error')}")
+        except Exception as e:
+            logger.error(f"[Moodle API] Exception uploading file {file_name}: {e}")
+        return None
+
+    def submit_assignment(self, assignment_id: int, file_data: Optional[bytes] = None,
+                          file_name: Optional[str] = None,
+                          text_content: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Save or submit an assignment solution to Moodle via REST Web Services.
+        Supports file attachments (DOCX, PDF, TXT) and online text.
+        """
+        if not self.is_configured():
+            return {"success": False, "error": "Moodle client not configured", "errorcode": "not_configured"}
+
+        params = {'assignmentid': assignment_id}
+
+        # 1. If file data provided, upload to draft file area
+        draft_itemid = None
+        if file_data and file_name:
+            draft_itemid = self.upload_file_to_draft_area(file_data, file_name)
+            if draft_itemid:
+                params['plugindata[files_filemanager]'] = draft_itemid
+
+        # 2. If text content provided, set online text editor plugin
+        if text_content:
+            params['plugindata[onlinetext_editor][text]'] = text_content
+            params['plugindata[onlinetext_editor][format]'] = 1  # HTML format
+            params['plugindata[onlinetext_editor][itemid]'] = 0
+
+        logger.info(f"[Moodle API] Saving submission for assignment {assignment_id} (files: {bool(draft_itemid)}, text: {bool(text_content)})")
+        save_res = self.call('mod_assign_save_submission', params)
+
+        # Check for warnings or errors
+        warnings = []
+        if isinstance(save_res, list):
+            warnings = save_res
+        elif isinstance(save_res, dict) and 'error' in save_res:
+            return {"success": False, "error": save_res['error'], "errorcode": save_res.get('errorcode')}
+
+        # Check submission status to verify
+        status = self.get_submission_status(assignment_id)
+        is_submitted = status.get('is_submitted', False) or status.get('is_draft', False)
+
+        return {
+            "success": True,
+            "assignment_id": assignment_id,
+            "draft_itemid": draft_itemid,
+            "submission_status": status.get('submission_status', 'Submitted for grading'),
+            "is_submitted": status.get('is_submitted', False),
+            "is_draft": status.get('is_draft', False),
+            "warnings": warnings
+        }

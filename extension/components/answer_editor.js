@@ -312,73 +312,49 @@ class AnswerEditor {
                     });
 
                     if (res && res.success) {
+                        const statusMsg = res.submission_status || 'Submitted for grading';
+                        const fileName = res.file_name || res.fileName || 'Solution file';
+                        
                         if (modalStatusArea) {
-                            modalStatusArea.style.background = '#dbeafe';
-                            modalStatusArea.style.color = '#1e40af';
+                            modalStatusArea.style.display = 'block';
+                            modalStatusArea.style.background = '#dcfce7';
+                            modalStatusArea.style.color = '#166534';
                             modalStatusArea.innerHTML = `
-                                <strong>File Attached to Moodle!</strong><br>
-                                File: <code>${res.fileName}</code><br>
-                                <span style="margin-top: 4px; display: block;">Click <strong>Save changes</strong> on your Moodle tab, then click Verify below.</span>
+                                <strong>✅ Assignment Successfully Submitted to Moodle!</strong><br>
+                                File: <code>${this.escapeHtml(fileName)}</code><br>
+                                Moodle Status: <strong>${this.escapeHtml(statusMsg)}</strong><br>
+                                <span style="margin-top: 4px; display: block; font-size: 11px;">Moodle LMS confirmed receipt of your file. Check your Moodle tab to view it!</span>
                             `;
                         }
-                        
-                        modalProceedBtn.innerHTML = '<span>🔍 Verify Moodle Submission Status</span>';
-                        modalProceedBtn.disabled = false;
 
-                        // Switch click handler to verification
-                        modalProceedBtn.onclick = async () => {
-                            modalProceedBtn.disabled = true;
-                            modalProceedBtn.innerHTML = '<span>Verifying with Moodle LMS...</span>';
+                        modalProceedBtn.innerHTML = '<span>✅ Submitted to Moodle</span>';
+                        modalProceedBtn.disabled = true;
+                        if (modalCancelBtn) modalCancelBtn.textContent = 'Close';
 
-                            const vRes = await chrome.runtime.sendMessage({
-                                type: 'VERIFY_SUBMISSION',
-                                payload: {
-                                    task_id: this.task.id || this.task.task_id,
-                                    solution_id: this.solution.solution_id || this.solution.id,
-                                    file_name: res.fileName,
-                                    file_format: format
-                                }
-                            });
+                        if (window.StudyMateNotification) {
+                            window.StudyMateNotification.success('Assignment successfully uploaded and submitted to Moodle!');
+                        }
 
-                            if (vRes && vRes.verified) {
-                                if (modalStatusArea) {
-                                    modalStatusArea.style.background = '#dcfce7';
-                                    modalStatusArea.style.color = '#166534';
-                                    modalStatusArea.innerHTML = `<strong>✅ Assignment submitted successfully.</strong> Moodle has confirmed your submission.`;
-                                }
-                                if (window.StudyMateNotification) {
-                                    window.StudyMateNotification.success('Assignment submitted successfully! Moodle has confirmed your submission.');
-                                }
-                                this.solution.status = 'SUBMITTED';
-                                this.task.status = 'Submitted';
-                                setTimeout(hideModal, 2000);
-                            } else if (vRes && vRes.is_draft) {
-                                if (modalStatusArea) {
-                                    modalStatusArea.style.background = '#fef3c7';
-                                    modalStatusArea.style.color = '#92400e';
-                                    modalStatusArea.innerHTML = `<strong>⚠️ Draft Uploaded:</strong> Your file has been uploaded as a draft, but the assignment has not been finally submitted. Complete the remaining step in Moodle.`;
-                                }
-                                modalProceedBtn.disabled = false;
-                                modalProceedBtn.innerHTML = '<span>Check Again</span>';
-                            } else {
-                                if (modalStatusArea) {
-                                    modalStatusArea.style.background = '#fee2e2';
-                                    modalStatusArea.style.color = '#991b1b';
-                                    modalStatusArea.innerHTML = `<strong>Submission could not be verified.</strong> Please check Moodle before assuming your assignment was submitted.`;
-                                }
-                                modalProceedBtn.disabled = false;
-                                modalProceedBtn.innerHTML = '<span>Check Again</span>';
-                            }
-                        };
+                        this.solution.status = 'SUBMITTED';
+                        this.task.status = 'Submitted';
+                        this.task.isActionablePending = false;
+                        this.task.availabilityStatus = 'SUBMITTED';
+                        this.task.submissionStatus = statusMsg;
+
+                        setTimeout(() => {
+                            hideModal();
+                            this.render();
+                        }, 2500);
 
                     } else {
                         if (modalStatusArea) {
+                            modalStatusArea.style.display = 'block';
                             modalStatusArea.style.background = '#fee2e2';
                             modalStatusArea.style.color = '#991b1b';
-                            modalStatusArea.innerHTML = `Error preparing submission: ${res?.error || 'Unknown error'}`;
+                            modalStatusArea.innerHTML = `<strong>Error submitting to Moodle:</strong> ${res?.error || 'Unknown error'}`;
                         }
                         modalProceedBtn.disabled = false;
-                        modalProceedBtn.innerHTML = '<span>Retry Submission</span>';
+                        modalProceedBtn.innerHTML = '<span>Retry Submission &rarr;</span>';
                     }
                 } catch (e) {
                     console.error('Submission error:', e);

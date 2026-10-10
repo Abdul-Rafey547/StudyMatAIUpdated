@@ -94,80 +94,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 });
             }
 
-            // Inspect Course Activity Links carefully
-            const activityItems = document.querySelectorAll('.activity.assign, .activity.quiz, .modtype_assign, .modtype_quiz, .activity-item');
-            const discoveredTasks = [];
-
-            activityItems.forEach(item => {
-                const link = item.querySelector('a.aalink, a.activityinstance, a[href*="/mod/assign/"], a[href*="/mod/quiz/"]');
-                if (!link || !link.href) return;
-
-                const href = link.href;
-                const isAssign = href.includes('/mod/assign/');
-                const isQuiz = href.includes('/mod/quiz/');
-                if (!isAssign && !isQuiz) return;
-
-                const matchId = href.match(/id=(\d+)/);
-                const activityId = matchId ? matchId[1] : null;
-                const titleElem = item.querySelector('.instancename, .activityname, h4') || link;
-                let title = titleElem.innerText.trim();
-                title = title.replace(/\s*(Assignment|Quiz)\s*$/i, '').trim();
-
-                // Check completion badges, dates, and restrictions displayed on the course page
-                const itemText = item.innerText.toLowerCase();
-                const isRestricted = item.classList.contains('dimmed') || itemText.includes('not available unless') || itemText.includes('restricted');
-                const isCompleted = item.querySelector('.badge-success, [data-region="completion-info"] .badge-primary, .completion-info .done') !== null || itemText.includes('done:');
-                const isSubmitted = itemText.includes('submitted') || itemText.includes('abgegeben');
-
-                // Extract due date if visible in activity summary
-                let dueDate = null;
-                const dateMatch = item.innerText.match(/Due:\s*([^\n\r]+)/i);
-                if (dateMatch) dueDate = dateMatch[1].trim();
-
-                let availStatus = 'UNVERIFIED';
-                let isActionable = false;
-
-                if (isRestricted) {
-                    availStatus = 'UNAVAILABLE';
-                } else if (isCompleted) {
-                    availStatus = 'COMPLETED';
-                } else if (isSubmitted) {
-                    availStatus = 'SUBMITTED';
-                } else {
-                    // Requires visiting assignment page for verified status — do not assume pending!
-                    availStatus = 'UNVERIFIED';
-                }
-
-                const taskObj = {
-                    id: isAssign ? `assign_${activityId}` : `quiz_${activityId}`,
-                    moodle_activity_id: activityId,
-                    title: title || (isAssign ? 'Assignment' : 'Quiz'),
-                    type: isAssign ? 'ASSIGNMENT' : 'QUIZ',
-                    url: href,
-                    moodle_url: href,
-                    dueDate: dueDate,
-                    course: pageInfo.courseName,
-                    courseName: pageInfo.courseName,
-                    availabilityStatus: availStatus,
-                    isActionablePending: isActionable,
-                    isUnverified: (availStatus === 'UNVERIFIED'),
-                    status: availStatus === 'UNVERIFIED' ? 'Unverified' : (availStatus === 'AVAILABLE' ? 'Pending' : availStatus)
-                };
-
-                discoveredTasks.push(taskObj);
-                chrome.runtime.sendMessage({
-                    type: 'SYNC_SCANNED_TASK',
-                    payload: taskObj
-                });
-            });
-
+            // On course pages, study materials (PDFs, notes, pages, books) are discovered.
+            // Authentic course tasks and availability are governed strictly by the Moodle Web Services API.
             responseData = {
                 success: true,
                 type: 'COURSE',
                 courseName: pageInfo.courseName,
                 resourcesFound: resources.length,
-                activitiesFound: discoveredTasks.length,
-                message: `Discovered ${resources.length} study materials and ${discoveredTasks.length} activities.`
+                message: `Discovered ${resources.length} study materials in course "${pageInfo.courseName}".`
             };
         } else {
             responseData = {

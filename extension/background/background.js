@@ -139,9 +139,8 @@ async function handleMessage(action, message, sender) {
     // 4. Scan results from content script
     case 'SYNC_SCANNED_TASK': {
       const task = message.payload;
-      console.log('[StudyMate AI] Scanned task received:', task);
+      console.log('[StudyMate AI] Scanned task context received:', task);
 
-      // Save locally to storage with stable deduplication
       const storage = await chrome.storage.local.get(['tasks']);
       const tasks = storage.tasks || [];
       const taskId = task.id || task.task_id || task.moodle_activity_id;
@@ -151,29 +150,24 @@ async function handleMessage(action, message, sender) {
         (t.title === task.title && (t.course || t.courseName) === (task.course || task.courseName))
       );
 
+      // Only update verified existing tasks; do not inject phantom DOM links
       if (existingIdx >= 0) {
         tasks[existingIdx] = {
           ...tasks[existingIdx],
           ...task,
           updatedAt: new Date().toISOString()
         };
-      } else {
-        tasks.push({
-          ...task,
-          createdAt: new Date().toISOString(),
-          status: task.status || 'Pending'
+        await chrome.storage.local.set({ tasks });
+
+        const backendRes = await apiRequest('/tasks/sync', {
+          method: 'POST',
+          body: JSON.stringify({ task })
         });
+
+        return { success: true, localTasks: tasks, backendSynced: backendRes.success };
       }
 
-      await chrome.storage.local.set({ tasks });
-
-      // Forward to backend API if available
-      const backendRes = await apiRequest('/tasks/sync', {
-        method: 'POST',
-        body: JSON.stringify({ task })
-      });
-
-      return { success: true, localTasks: tasks, backendSynced: backendRes.success };
+      return { success: true, localTasks: tasks, backendSynced: false, ignoredUnverified: true };
     }
 
     // 5. Sync Scanned Learning Resources (PDF books, notes, DOCX, Pages, Books)
@@ -213,17 +207,19 @@ async function handleMessage(action, message, sender) {
 
     // 6. Get tasks (from backend or fallback to local storage)
     case 'GET_TASKS': {
-      const pendingOnly = message.pendingOnly ? '?pending_only=true' : '';
-      const backendRes = await apiRequest(`/tasks${pendingOnly}`);
+      const queryParts = ['enrolled_only=true'];
+      if (message.pendingOnly) queryParts.push('pending_only=true');
+      const backendRes = await apiRequest(`/tasks?${queryParts.join('&')}`);
       if (backendRes.success && Array.isArray(backendRes.tasks)) {
         await chrome.storage.local.set({ tasks: backendRes.tasks });
         return { success: true, tasks: backendRes.tasks, source: 'backend' };
       }
-      // Fallback to local storage
+      // Fallback to local storage (exclude unavailable tasks)
       const stored = await chrome.storage.local.get(['tasks']);
       let localTasks = stored.tasks || [];
+      localTasks = localTasks.filter(t => t.availabilityStatus !== 'UNAVAILABLE' && t.availability_status !== 'UNAVAILABLE');
       if (message.pendingOnly) {
-        localTasks = localTasks.filter(t => t.isActionablePending !== false && t.availabilityStatus !== 'SUBMITTED' && t.availabilityStatus !== 'COMPLETED');
+        localTasks = localTasks.filter(t => (t.isActionablePending === 1 || t.isActionablePending === true || t.is_actionable_pending === 1) && t.availabilityStatus !== 'SUBMITTED' && t.availability_status !== 'SUBMITTED' && t.status !== 'Submitted' && t.status !== 'SUBMITTED' && t.status !== 'COMPLETED');
       }
       return { success: true, tasks: localTasks, source: 'local' };
     }
@@ -337,64 +333,88 @@ async function handleMessage(action, message, sender) {
       const payload = message.payload || {};
       const taskId = payload.task_id || payload.taskId;
       const solutionId = payload.solution_id || payload.solutionId;
-      const fileFormat = payload.format || payload.file_format || 'DOCX';
+      const fileFormat = (payload.format || payload.file_format || 'DOCX').toUpperCase();
+      const answer = payload.answer || payload.edited_answer || '';
       let targetTabId = payload.tabId;
 
-      console.log(`[StudyMate AI] Preparing submission for task ${taskId} (Format: ${fileFormat})...`);
+      console.log(`[StudyMate AI] Uploading & Submitting task ${taskId} to Moodle via Web Services API...`);
 
-      // 1. Generate real assignment file from approved answer
-      const fileRes = await apiRequest('/submissions/generate-file', {
+      // Call backend direct Moodle Web Services upload endpoint
+      const uploadRes = await apiRequest('/submissions/upload-to-moodle', {
         method: 'POST',
         body: JSON.stringify({
           task_id: taskId,
           solution_id: solutionId,
           format: fileFormat,
-          answer: payload.answer || payload.edited_answer
+          answer: answer
         })
       });
 
-      // 2. Find active Moodle tab or create one if needed
-      if (!targetTabId) {
-        const tabs = await chrome.tabs.query({});
-        const moodleTab = tabs.find(t => t.url && (t.url.includes('mod/assign') || t.url.includes('mod/quiz') || t.url.includes('moodle')));
-        if (moodleTab) {
-          targetTabId = moodleTab.id;
-        }
+      if (!uploadRes.success) {
+        console.error('[StudyMate AI] Moodle upload failed:', uploadRes);
+        return {
+          success: false,
+          error: uploadRes.error || 'Failed to upload assignment to Moodle LMS.',
+          errorcode: uploadRes.errorcode
+        };
       }
 
-      // If task has specific Moodle URL and no matching tab, open it
-      if (!targetTabId && payload.moodle_url) {
-        const newTab = await chrome.tabs.create({ url: payload.moodle_url });
-        targetTabId = newTab.id;
+      // Update local storage tasks
+      const storage = await chrome.storage.local.get(['tasks', 'history']);
+      const tasks = storage.tasks || [];
+      const tIdx = tasks.findIndex(t => (t.id || t.task_id) == taskId);
+      let taskTitle = 'Assignment Submission';
+      let courseName = 'Course';
+
+      if (tIdx >= 0) {
+        taskTitle = tasks[tIdx].title || taskTitle;
+        courseName = tasks[tIdx].courseName || tasks[tIdx].course || courseName;
+        tasks[tIdx].status = 'Submitted';
+        tasks[tIdx].availabilityStatus = 'SUBMITTED';
+        tasks[tIdx].isActionablePending = false;
+        tasks[tIdx].submissionStatus = uploadRes.submission_status || 'Submitted for grading';
+        await chrome.storage.local.set({ tasks });
       }
 
-      // 3. Inject file and text into Moodle tab via content script
-      let contentRes = null;
-      if (targetTabId) {
+      // Log to history
+      const history = storage.history || [];
+      history.unshift({
+        id: 'sub_' + Date.now(),
+        taskId: taskId,
+        title: taskTitle,
+        course: courseName,
+        submittedAt: new Date().toISOString(),
+        fileName: uploadRes.file_name,
+        fileFormat: fileFormat,
+        status: uploadRes.submission_status || 'Submitted for grading',
+        verified: true
+      });
+      await chrome.storage.local.set({ history });
+
+      // Open or focus the Moodle assignment tab so the student can see their confirmed submission
+      const moodleUrl = uploadRes.moodle_url || payload.moodle_url;
+      if (moodleUrl) {
         try {
-          contentRes = await chrome.tabs.sendMessage(targetTabId, {
-            type: 'FILL_MOODLE_SUBMISSION',
-            payload: {
-              ...payload,
-              file_base64: fileRes.file_base64,
-              file_name: fileRes.file_name,
-              mime_type: fileRes.mime_type,
-              data_url: fileRes.data_url
-            }
-          });
-          console.log('[StudyMate AI] Injected submission helper into Moodle:', contentRes);
-        } catch (e) {
-          console.warn('[StudyMate AI] Could not message content script on tab:', e);
+          const tabs = await chrome.tabs.query({});
+          const moodleTab = tabs.find(t => t.url && (t.url.includes('mod/assign') || t.url.includes('moodle.local')));
+          if (moodleTab) {
+            await chrome.tabs.update(moodleTab.id, { url: moodleUrl, active: true });
+          } else {
+            await chrome.tabs.create({ url: moodleUrl });
+          }
+        } catch (tabErr) {
+          console.warn('[StudyMate AI] Could not open/update Moodle tab:', tabErr);
         }
       }
 
       return {
         success: true,
-        fileGenerated: fileRes.success,
-        fileName: fileRes.file_name,
-        fileDataUrl: fileRes.data_url,
-        fileSize: fileRes.file_size,
-        injected: Boolean(contentRes && contentRes.success)
+        file_name: uploadRes.file_name,
+        fileName: uploadRes.file_name,
+        submission_status: uploadRes.submission_status,
+        is_submitted: uploadRes.is_submitted,
+        moodle_url: moodleUrl,
+        message: uploadRes.message || 'Successfully uploaded and submitted to Moodle!'
       };
     }
 

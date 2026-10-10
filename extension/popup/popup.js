@@ -74,13 +74,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function renderStatsAndTasks(tasks) {
+        const activeTasks = (tasks || []).filter(t => t.availability_status !== 'UNAVAILABLE' && t.availabilityStatus !== 'UNAVAILABLE');
         // Strict Category 1 pending filter: must be verified available and actionable
-        const pending = tasks.filter(t =>
-            (t.is_actionable_pending === 1 || t.isActionablePending === true || t.availability_status === 'AVAILABLE' || t.availabilityStatus === 'AVAILABLE') &&
+        const pending = activeTasks.filter(t =>
+            (t.is_actionable_pending === 1 || t.isActionablePending === true) &&
             t.status !== 'SUBMITTED' && t.status !== 'Submitted' && t.status !== 'COMPLETED' && t.status !== 'Closed' && t.status !== 'Unavailable'
         );
-        const drafts = tasks.filter(t => t.status === 'GENERATED' || t.status === 'Draft Ready' || t.status === 'REVIEW' || t.status === 'In Draft');
-        const submitted = tasks.filter(t => t.status === 'SUBMITTED' || t.status === 'Submitted' || t.status === 'COMPLETED');
+        const drafts = activeTasks.filter(t => t.status === 'GENERATED' || t.status === 'Draft Ready' || t.status === 'REVIEW' || t.status === 'In Draft');
+        const submitted = activeTasks.filter(t => t.status === 'SUBMITTED' || t.status === 'Submitted' || t.status === 'COMPLETED');
 
         if (statPending) statPending.textContent = String(pending.length).padStart(2, '0');
         if (statDraft) statDraft.textContent = String(drafts.length).padStart(2, '0');

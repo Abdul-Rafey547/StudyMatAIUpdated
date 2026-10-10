@@ -403,3 +403,136 @@ def legacy_submit_solution():
     finally:
         if conn:
             conn.close()
+
+
+@submissions_bp.route('/upload-to-moodle', methods=['POST'])
+def upload_to_moodle():
+    """
+    Directly upload and submit an assignment solution to Moodle via REST Web Services.
+    Generates the formatted assignment document (DOCX or TXT) and invokes mod_assign_save_submission.
+    """
+    conn = None
+    try:
+        from moodle.moodle_client import MoodleClient
+        data = request.get_json(silent=True) or {}
+        task_id = data.get('task_id') or data.get('taskId')
+        solution_id = data.get('solution_id') or data.get('solutionId')
+        custom_answer = data.get('answer') or data.get('edited_answer')
+        file_format = (data.get('format') or data.get('file_format') or 'DOCX').upper()
+
+        if not task_id:
+            return jsonify({"error": "task_id is required"}), 400
+
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("""
+            SELECT t.*, c.course_name
+            FROM tasks t
+            LEFT JOIN courses c ON t.course_id = c.course_id
+            WHERE t.task_id = ?
+        """, (task_id,))
+        task_row = c.fetchone()
+        if not task_row:
+            return jsonify({"error": f"Task {task_id} not found"}), 404
+
+        moodle_activity_id = task_row['moodle_activity_id']
+        if not moodle_activity_id:
+            return jsonify({"error": "Task is not linked to a Moodle assignment activity ID."}), 400
+
+        # Retrieve answer text
+        answer_text = custom_answer or ""
+        if not answer_text:
+            if solution_id:
+                c.execute("SELECT * FROM solutions WHERE solution_id = ?", (solution_id,))
+            else:
+                c.execute("SELECT * FROM solutions WHERE task_id = ? ORDER BY created_at DESC LIMIT 1", (task_id,))
+            sol_row = c.fetchone()
+            if sol_row:
+                answer_text = sol_row['edited_answer'] or sol_row['generated_answer'] or ""
+
+        if not answer_text or not answer_text.strip():
+            return jsonify({"error": "Cannot submit empty answer."}), 400
+
+        task_title = task_row['title'] or "Assignment"
+        course_name = task_row['course_name'] or "General Course"
+        base_name = _sanitize_filename(task_title)
+        timestamp_str = datetime.now().strftime("%Y%m%d")
+
+        # Generate file bytes
+        file_name = f"{base_name}_{timestamp_str}.docx"
+        if file_format == 'DOCX' and docx:
+            doc = docx.Document()
+            doc.add_heading(task_title, level=1)
+            p_meta = doc.add_paragraph()
+            p_meta.add_run(f"Course: {course_name}\nDate: {datetime.now().strftime('%B %d, %Y')}\nPrepared via StudyMate AI\n")
+            doc.add_heading("Solution & Academic Response", level=2)
+            for para in answer_text.split('\n\n'):
+                if para.strip():
+                    doc.add_paragraph(para.strip())
+            file_stream = io.BytesIO()
+            doc.save(file_stream)
+            file_bytes = file_stream.getvalue()
+        else:
+            file_name = f"{base_name}_{timestamp_str}.txt"
+            header = f"{'='*60}\n{task_title.upper()}\nCourse: {course_name}\nDate: {datetime.now().strftime('%B %d, %Y')}\n{'='*60}\n\n"
+            file_bytes = (header + answer_text).encode('utf-8')
+
+        client = MoodleClient()
+        submit_res = client.submit_assignment(
+            assignment_id=int(moodle_activity_id),
+            file_data=file_bytes,
+            file_name=file_name,
+            text_content=answer_text
+        )
+
+        if not submit_res.get('success'):
+            return jsonify({
+                "success": False,
+                "error": submit_res.get('error', 'Moodle submission failed'),
+                "errorcode": submit_res.get('errorcode')
+            }), 400
+
+        sub_status = submit_res.get('submission_status', 'Submitted for grading')
+        is_sub = submit_res.get('is_submitted', True)
+
+        c.execute("""
+            UPDATE tasks
+            SET status = 'SUBMITTED', availability_status = 'SUBMITTED',
+                is_actionable_pending = 0, submission_status = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE task_id = ?
+        """, (sub_status, task_id))
+
+        if not solution_id:
+            c.execute("""
+                INSERT INTO solutions (task_id, generated_answer, edited_answer, status)
+                VALUES (?, ?, ?, 'SUBMITTED')
+            """, (task_id, answer_text, answer_text))
+            solution_id = c.lastrowid
+        else:
+            c.execute("UPDATE solutions SET status = 'SUBMITTED', updated_at = CURRENT_TIMESTAMP WHERE solution_id = ?", (solution_id,))
+
+        c.execute("""
+            INSERT INTO submissions (task_id, solution_id, file_name, file_format, moodle_status, verified)
+            VALUES (?, ?, ?, ?, ?, 1)
+        """, (task_id, solution_id, file_name, file_format, sub_status))
+        conn.commit()
+
+        logger.info(f"Direct Moodle submission successful: task #{task_id}, file: {file_name}")
+
+        return jsonify({
+            "success": True,
+            "message": f"Successfully uploaded and submitted to Moodle: {file_name}",
+            "task_id": task_id,
+            "file_name": file_name,
+            "submission_status": sub_status,
+            "is_submitted": is_sub,
+            "moodle_url": task_row['moodle_url']
+        })
+
+    except Exception as e:
+        logger.error(f"Error submitting solution to Moodle: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()

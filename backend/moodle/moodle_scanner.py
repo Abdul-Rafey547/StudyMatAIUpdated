@@ -175,16 +175,16 @@ class MoodleScanner:
                 if not is_uservisible or not is_mod_visible:
                     avail_status = 'UNAVAILABLE'
                     is_actionable = False
-                elif is_graded and not resubmission_allowed:
+                elif is_graded:
                     avail_status = 'COMPLETED'
                     is_actionable = False
-                elif is_submitted and not resubmission_allowed:
+                elif is_submitted:
                     avail_status = 'SUBMITTED'
                     is_actionable = False
                 elif allowfrom_ts and allowfrom_ts > now_ts:
                     avail_status = 'UPCOMING'
                     is_actionable = False
-                elif cutoff_ts and cutoff_ts > 0 and cutoff_ts < now_ts and not is_submitted:
+                elif cutoff_ts and cutoff_ts > 0 and cutoff_ts < now_ts:
                     avail_status = 'CLOSED'
                     is_actionable = False
                 else:
@@ -362,7 +362,8 @@ class MoodleScanner:
                 placeholders = ','.join('?' for _ in enrolled_db_cids)
                 c_cursor.execute(f"""
                     UPDATE tasks
-                    SET is_actionable_pending = 0
+                    SET is_actionable_pending = 0,
+                        availability_status = 'UNAVAILABLE'
                     WHERE course_id NOT IN ({placeholders})
                 """, tuple(enrolled_db_cids))
 
@@ -398,13 +399,33 @@ class MoodleScanner:
 
             # 7. Fetch fresh results for response
             c_cursor.execute("""
-                SELECT t.*, c.course_name
+                SELECT t.*, c.course_name,
+                       s.solution_id, s.generated_answer, s.edited_answer, s.status as solution_status
                 FROM tasks t
                 LEFT JOIN courses c ON t.course_id = c.course_id
+                LEFT JOIN solutions s ON s.task_id = t.task_id AND s.solution_id = (
+                    SELECT solution_id FROM solutions WHERE task_id = t.task_id ORDER BY created_at DESC LIMIT 1
+                )
                 WHERE t.course_id IN ({})
                 ORDER BY t.created_at DESC
             """.format(','.join('?' for _ in enrolled_db_cids)), tuple(enrolled_db_cids))
-            synced_tasks = [dict(r) for r in c_cursor.fetchall()]
+            synced_tasks = []
+            for r in c_cursor.fetchall():
+                t_dict = dict(r)
+                t_dict['id'] = t_dict['task_id']
+                t_dict['dueDate'] = t_dict.get('due_date')
+                t_dict['courseName'] = t_dict.get('course_name')
+                t_dict['isActionablePending'] = bool(t_dict.get('is_actionable_pending'))
+                t_dict['availabilityStatus'] = t_dict.get('availability_status')
+                if t_dict.get('solution_id'):
+                    t_dict['solution'] = {
+                        'solution_id': t_dict['solution_id'],
+                        'id': t_dict['solution_id'],
+                        'generated_answer': t_dict.get('generated_answer'),
+                        'edited_answer': t_dict.get('edited_answer'),
+                        'status': t_dict.get('solution_status')
+                    }
+                synced_tasks.append(t_dict)
 
             c_cursor.execute("""
                 SELECT r.*, c.course_name
