@@ -68,6 +68,12 @@ async function apiRequest(endpoint, options = {}) {
     }
   };
 
+  // If sending POST/PUT/PATCH with application/json header but no body, provide an empty JSON body
+  const reqMethod = (fetchOptions.method || 'GET').toUpperCase();
+  if (['POST', 'PUT', 'PATCH'].includes(reqMethod) && fetchOptions.body === undefined) {
+    fetchOptions.body = JSON.stringify({});
+  }
+
   try {
     const response = await fetch(url, fetchOptions);
     const data = await response.json();
@@ -478,7 +484,7 @@ async function handleMessage(action, message, sender) {
     case 'TRIGGER_API_SCAN':
     case 'TRIGGER_ACTIVE_TAB_SCAN': {
       console.log('[StudyMate AI] Triggering Moodle API scan via backend...');
-      const backendScan = await apiRequest('/tasks/scan', { method: 'POST' });
+      const backendScan = await apiRequest('/tasks/scan', { method: 'POST', body: JSON.stringify({}) });
 
       if (backendScan.success) {
         const tasks = backendScan.tasks || [];

@@ -32,7 +32,7 @@ def sync_resources():
     """
     conn = None
     try:
-        data = request.json or {}
+        data = request.get_json(silent=True) or {}
         raw_resources = data.get('resources') or data.get('resource')
         if not raw_resources:
             return jsonify({"error": "No resource data provided"}), 400
@@ -216,7 +216,7 @@ def process_document():
     """
     conn = None
     try:
-        data = request.json or {}
+        data = request.get_json(silent=True) or {}
         resource_id = data.get('resource_id')
         file_base64 = data.get('file_base64')
         raw_text = data.get('raw_text')
@@ -351,7 +351,7 @@ def study_resource():
     """
     conn = None
     try:
-        data = request.json or {}
+        data = request.get_json(silent=True) or {}
         resource_id = data.get('resource_id')
         action = (data.get('action') or 'summarize').lower()
         topic = data.get('topic') or ''

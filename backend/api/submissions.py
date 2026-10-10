@@ -31,7 +31,7 @@ def save_draft():
     """Save or update student edited draft solution."""
     conn = None
     try:
-        data = request.json or {}
+        data = request.get_json(silent=True) or {}
         solution_id = data.get('solution_id') or data.get('solutionId')
         task_id = data.get('task_id') or data.get('taskId')
         edited_answer = data.get('edited_answer') or data.get('editedAnswer', '')
@@ -78,7 +78,7 @@ def generate_submission_file():
     """
     conn = None
     try:
-        data = request.json or {}
+        data = request.get_json(silent=True) or {}
         task_id = data.get('task_id') or data.get('taskId')
         solution_id = data.get('solution_id') or data.get('solutionId')
         file_format = (data.get('format') or data.get('file_format') or 'DOCX').upper()
@@ -230,7 +230,7 @@ def verify_and_record_submission():
     """
     conn = None
     try:
-        data = request.json or {}
+        data = request.get_json(silent=True) or {}
         task_id = data.get('task_id') or data.get('taskId')
         solution_id = data.get('solution_id') or data.get('solutionId')
         moodle_status = (data.get('moodle_status') or data.get('status') or '').strip()
@@ -350,7 +350,7 @@ def legacy_submit_solution():
     """
     Backwards-compatible submit endpoint with verification support.
     """
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     # If verified parameter is provided, use verified handler
     if 'verified' in data or 'moodle_status' in data:
         return verify_and_record_submission()

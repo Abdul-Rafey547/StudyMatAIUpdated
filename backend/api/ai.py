@@ -29,7 +29,7 @@ def get_providers():
 @ai_bp.route('/generate', methods=['POST'])
 def generate_solution():
     try:
-        data = request.json or {}
+        data = request.get_json(silent=True) or {}
         task_id = data.get('task_id') or data.get('taskId')
         custom_prompt = data.get('prompt') or data.get('custom_prompt')
         context = data.get('context')
@@ -97,7 +97,7 @@ def study_action(action):
         if action.lower() not in valid_actions:
             return jsonify({"error": f"Invalid action. Choose from: {', '.join(valid_actions)}"}), 400
 
-        data = request.json or {}
+        data = request.get_json(silent=True) or {}
         topic = data.get('topic')
         course_id = data.get('course_id')
 

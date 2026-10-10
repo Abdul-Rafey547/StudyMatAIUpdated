@@ -20,7 +20,7 @@ def scan_moodle_tasks():
     Scans student's enrolled courses, verifies availability, and stores fresh normalized activities.
     """
     try:
-        data = request.json or {} if request.is_json else {}
+        data = request.get_json(silent=True) or {}
         user_id = data.get('user_id') or request.args.get('user_id')
         scanner = MoodleScanner()
         scan_result = scanner.scan_enrolled_courses(user_id=int(user_id) if user_id else None)
@@ -57,7 +57,7 @@ def sync_task():
     """
     conn = None
     try:
-        data = request.json or {}
+        data = request.get_json(silent=True) or {}
         raw_task = data.get('task') or data
         if not raw_task:
             return jsonify({"error": "No task data provided"}), 400
