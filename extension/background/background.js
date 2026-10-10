@@ -474,19 +474,64 @@ async function handleMessage(action, message, sender) {
       return backendRes;
     }
 
-    // 14. Trigger active tab page scan
+    // 14. Trigger Reliable Moodle API Scan (Primary source of truth)
+    case 'TRIGGER_API_SCAN':
     case 'TRIGGER_ACTIVE_TAB_SCAN': {
-      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!activeTab || !activeTab.id) {
-        return { success: false, error: 'No active tab found' };
+      console.log('[StudyMate AI] Triggering Moodle API scan via backend...');
+      const backendScan = await apiRequest('/tasks/scan', { method: 'POST' });
+
+      if (backendScan.success) {
+        const tasks = backendScan.tasks || [];
+        const resources = backendScan.resources || [];
+        await chrome.storage.local.set({
+          tasks: tasks,
+          resources: resources,
+          lastScanAt: new Date().toISOString()
+        });
+        return {
+          success: true,
+          source: 'api',
+          totalTasks: backendScan.total_tasks ?? tasks.length,
+          pendingTasks: backendScan.pending_tasks ?? tasks.filter(t => t.is_actionable_pending).length,
+          totalResources: backendScan.total_resources ?? resources.length,
+          tasks: tasks,
+          resources: resources,
+          message: backendScan.message || `Found ${tasks.length} tasks and ${resources.length} study materials.`
+        };
       }
 
-      try {
-        const scanRes = await chrome.tabs.sendMessage(activeTab.id, { type: 'SCAN_PAGE_NOW' });
-        return { success: true, scanRes };
-      } catch (err) {
-        return { success: false, error: 'Could not connect to Moodle page. Make sure you are on a Moodle site.' };
+      // If backend responded with explicit Moodle API or configuration error
+      if (backendScan.status > 0) {
+        return {
+          success: false,
+          error: backendScan.error || 'Moodle API scan error. Please check Moodle Web Services configuration.',
+          errorcode: backendScan.errorcode
+        };
       }
+
+      // Optional DOM fallback only if backend server is completely unreachable
+      console.warn('[StudyMate AI] Backend server unreachable. Attempting active tab DOM scan fallback...');
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (activeTab && activeTab.id) {
+        try {
+          const domRes = await chrome.tabs.sendMessage(activeTab.id, { type: 'SCAN_PAGE_NOW' });
+          if (domRes && domRes.success) {
+            return {
+              success: true,
+              source: 'dom_fallback',
+              domRes,
+              message: 'Scanned active tab via DOM fallback (Backend server unreachable).'
+            };
+          }
+        } catch (e) {
+          // Ignore content script message error
+        }
+      }
+
+      return {
+        success: false,
+        error: backendScan.error || 'StudyMate backend server is not running. Please start app.py.'
+      };
     }
 
     // 15. Open Full Dashboard

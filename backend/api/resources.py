@@ -474,3 +474,78 @@ def study_resource():
     finally:
         if conn:
             conn.close()
+
+
+@resources_bp.route('/fetch-content/<int:resource_id>', methods=['POST'])
+def fetch_resource_content(resource_id):
+    """
+    Download and extract text from Moodle learning material using backend authenticated client.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("SELECT * FROM resources WHERE resource_id = ?", (resource_id,))
+        res = c.fetchone()
+        if not res:
+            return jsonify({"error": "Resource not found"}), 404
+
+        target_url = res['direct_url'] or res['moodle_url']
+        if not target_url:
+            return jsonify({"error": "Resource has no accessible file URL"}), 400
+
+        from moodle.moodle_client import MoodleClient
+        client = MoodleClient()
+        content_bytes = client.get_resource_content(target_url)
+
+        if not content_bytes:
+            return jsonify({"error": "Failed to download resource content from Moodle. Check authentication or file permissions."}), 502
+
+        r_type = (res['resource_type'] or 'PDF').upper()
+        extracted_text = ""
+        is_scanned = 0
+
+        stream = io.BytesIO(content_bytes)
+        if r_type == 'PDF' and pypdf:
+            reader = pypdf.PdfReader(stream)
+            pages = []
+            for idx, p in enumerate(reader.pages):
+                t = p.extract_text() or ''
+                if t.strip():
+                    pages.append(f"[Page {idx + 1}]\n{t.strip()}")
+            if pages:
+                extracted_text = "\n\n".join(pages)
+            else:
+                is_scanned = 1
+        elif r_type in ('DOCX', 'DOC') and docx:
+            doc = docx.Document(stream)
+            paras = [p.text for p in doc.paragraphs if p.text.strip()]
+            extracted_text = "\n\n".join(paras)
+        elif r_type == 'TXT':
+            try:
+                extracted_text = content_bytes.decode('utf-8')
+            except UnicodeDecodeError:
+                extracted_text = content_bytes.decode('latin-1', errors='ignore')
+
+        c.execute("""
+            UPDATE resources
+            SET extracted_text = ?, is_scanned_image = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE resource_id = ?
+        """, (extracted_text, is_scanned, resource_id))
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "resource_id": resource_id,
+            "extracted_text": extracted_text,
+            "word_count": len(extracted_text.split()) if extracted_text else 0,
+            "is_scanned_image": bool(is_scanned)
+        })
+
+    except Exception as e:
+        logger.error(f"Error fetching content for resource #{resource_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+

@@ -45,8 +45,12 @@ class MoodleParsersTestCase(unittest.TestCase):
     def test_moodle_client_unconfigured(self):
         client = MoodleClient(base_url='', token='')
         self.assertFalse(client.is_configured())
-        res = client.get_courses()
+        res = client.check_connection()
+        self.assertFalse(res['connected'])
         self.assertIn('error', res)
+        call_res = client.call('core_course_get_courses')
+        self.assertIn('error', call_res)
+        self.assertEqual(client.get_courses(), [])
 
 if __name__ == '__main__':
     unittest.main()

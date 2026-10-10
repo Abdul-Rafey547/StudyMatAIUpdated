@@ -6,10 +6,48 @@ from flask import Blueprint, request, jsonify
 from database.database import get_db_connection
 from moodle.assignment_parser import AssignmentParser
 from moodle.quiz_parser import QuizParser
+from moodle.moodle_client import MoodleClient
+from moodle.moodle_scanner import MoodleScanner
 from utils.logger import get_logger
 
 logger = get_logger('studymate.api.tasks')
 tasks_bp = Blueprint('tasks', __name__)
+
+@tasks_bp.route('/scan', methods=['POST', 'GET'])
+def scan_moodle_tasks():
+    """
+    Trigger a fresh backend scan using the Moodle Web Services API as the source of truth.
+    Scans student's enrolled courses, verifies availability, and stores fresh normalized activities.
+    """
+    try:
+        data = request.json or {} if request.is_json else {}
+        user_id = data.get('user_id') or request.args.get('user_id')
+        scanner = MoodleScanner()
+        scan_result = scanner.scan_enrolled_courses(user_id=int(user_id) if user_id else None)
+
+        if not scan_result.get('success'):
+            status_code = 503 if scan_result.get('errorcode') == 'connection_failed' else 400
+            return jsonify(scan_result), status_code
+
+        return jsonify(scan_result)
+
+    except Exception as e:
+        logger.error(f"Error executing Moodle API scan: {e}")
+        return jsonify({"success": False, "error": str(e), "errorcode": "scan_exception"}), 500
+
+
+@tasks_bp.route('/moodle-status', methods=['GET'])
+def moodle_status():
+    """
+    Verify backend connection to Moodle LMS Web Services without modifying data.
+    """
+    try:
+        client = MoodleClient()
+        conn_info = client.check_connection()
+        return jsonify(conn_info)
+    except Exception as e:
+        logger.error(f"Error checking Moodle connection: {e}")
+        return jsonify({"connected": False, "error": str(e)}), 500
 
 @tasks_bp.route('/sync', methods=['POST'])
 def sync_task():
@@ -169,7 +207,7 @@ def get_tasks():
         params = []
 
         if pending_only:
-            query += " AND (t.is_actionable_pending = 1 OR t.availability_status = 'AVAILABLE') AND t.status NOT IN ('SUBMITTED', 'COMPLETED', 'CLOSED', 'UNAVAILABLE')"
+            query += " AND t.is_actionable_pending = 1 AND t.status NOT IN ('SUBMITTED', 'COMPLETED', 'CLOSED', 'UNAVAILABLE', 'ARCHIVED')"
 
         if course_id:
             query += " AND t.course_id = ?"

@@ -24,7 +24,7 @@ class TaskCard {
                 <div class="task-card__info">
                     <h4 class="task-card__title">${TaskCard.escapeHtml(task.title || 'Untitled Task')}</h4>
                     <p class="task-card__meta">
-                        ${task.courseName || task.course || 'General'}
+                        ${TaskCard.escapeHtml(task.course_name || task.courseName || task.course || 'General')}
                         ${dueText ? ` • ${dueText}` : ''}
                     </p>
                 </div>
@@ -40,6 +40,11 @@ class TaskCard {
                 <button class="task-card__btn task-card__btn--secondary view-btn" data-action="view" data-task-id="${task.id || task.task_id}">
                     View Details
                 </button>
+                ${(task.moodle_url || task.url) ? `
+                <a href="${task.moodle_url || task.url}" target="_blank" class="task-card__btn task-card__btn--secondary moodle-link" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="Open in Moodle">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    Moodle
+                </a>` : ''}
             </div>` : ''}
         `;
         

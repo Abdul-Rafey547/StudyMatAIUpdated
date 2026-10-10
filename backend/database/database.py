@@ -30,7 +30,13 @@ def init_db():
         'grading_status': "TEXT DEFAULT 'Not graded'",
         'availability_status': "TEXT DEFAULT 'AVAILABLE'",
         'is_actionable_pending': 'INTEGER DEFAULT 1',
-        'resubmission_allowed': 'INTEGER DEFAULT 0'
+        'resubmission_allowed': 'INTEGER DEFAULT 0',
+        'lms_type': "TEXT DEFAULT 'moodle'",
+        'lms_instance': 'TEXT',
+        'open_date': 'TEXT',
+        'close_date': 'TEXT',
+        'source': "TEXT DEFAULT 'api'",
+        'last_scanned_at': 'TIMESTAMP'
     }
     c.execute("PRAGMA table_info(tasks)")
     existing_task_cols = [row['name'] for row in c.fetchall()]
@@ -59,7 +65,9 @@ def init_db():
 
     # Columns to check for courses table
     course_columns = {
-        'scanned_at': 'TIMESTAMP'
+        'scanned_at': 'TIMESTAMP',
+        'lms_type': "TEXT DEFAULT 'moodle'",
+        'lms_instance': 'TEXT'
     }
     c.execute("PRAGMA table_info(courses)")
     existing_course_cols = [row['name'] for row in c.fetchall()]

@@ -116,10 +116,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Refresh Data Button
-    els.refreshBtn.addEventListener('click', () => {
-        StudyMateNotification.info('Refreshing data from Moodle & backend...');
-        loadTasks();
-        loadResources();
+    els.refreshBtn.addEventListener('click', async () => {
+        StudyMateNotification.info('Scanning Moodle Web Services API for fresh activities...');
+        els.refreshBtn.disabled = true;
+        try {
+            const scanRes = await chrome.runtime.sendMessage({ type: 'TRIGGER_API_SCAN' });
+            if (scanRes && scanRes.success) {
+                StudyMateNotification.success(scanRes.message || `Refreshed: ${scanRes.totalTasks} tasks, ${scanRes.totalResources} materials.`);
+            } else if (scanRes && scanRes.error) {
+                StudyMateNotification.warning(scanRes.error);
+            }
+        } catch (e) {
+            console.error('Scan error:', e);
+        } finally {
+            els.refreshBtn.disabled = false;
+            await loadTasks();
+            await loadResources();
+        }
     });
 
     // Load Tasks

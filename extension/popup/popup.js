@@ -129,14 +129,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
                 <div class="task-info">
                     <h4>${escapeHtml(task.title || 'Untitled Task')}</h4>
-                    <p>${task.due_date || task.dueDate || task.course || 'No due date'}</p>
+                    <p>${escapeHtml(task.course_name || task.courseName || task.course || 'Course')} • ${task.due_date || task.dueDate || 'No due date'}</p>
                 </div>
                 <span class="badge ${statusClass}">${statusLabel}</span>
                 <span class="arrow">›</span>
             `;
 
             item.addEventListener('click', () => {
-                chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD', tab: 'review' });
+                if (task.moodle_url || task.url) {
+                    chrome.tabs.create({ url: task.moodle_url || task.url });
+                } else {
+                    chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD', tab: 'review' });
+                }
             });
 
             taskList.appendChild(item);
@@ -231,21 +235,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/>
                     <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
                 </svg>
-                Scanning page...
+                Scanning Moodle API...
             `;
 
             try {
-                const res = await chrome.runtime.sendMessage({ type: 'TRIGGER_ACTIVE_TAB_SCAN' });
+                const res = await chrome.runtime.sendMessage({ type: 'TRIGGER_API_SCAN' });
                 if (res && res.success) {
-                    scanBtn.innerHTML = '✓ Scan Complete';
+                    const taskCount = res.pendingTasks ?? res.totalTasks ?? 0;
+                    const resCount = res.totalResources ?? 0;
+                    scanBtn.innerHTML = `✓ ${taskCount} Tasks, ${resCount} Materials`;
                     scanBtn.style.background = 'var(--accent-green)';
                     await initPopup();
                 } else {
-                    scanBtn.innerHTML = res?.error || '! Scan Complete';
+                    const errMsg = res?.error || 'Scan Failed';
+                    scanBtn.innerHTML = `! ${escapeHtml(errMsg.substring(0, 32))}`;
+                    scanBtn.style.background = '#e74c3c';
                 }
             } catch (e) {
                 console.error(e);
                 scanBtn.innerHTML = '! Scan Failed';
+                scanBtn.style.background = '#e74c3c';
             }
 
             setTimeout(() => {
@@ -259,7 +268,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </svg>
                     Scan for Assignments
                 `;
-            }, 2500);
+            }, 3000);
         });
     }
 
