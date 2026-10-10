@@ -55,12 +55,12 @@ PROVIDER_METADATA: Dict[str, Dict[str, Any]] = {
     "groq": {
         "id": "groq",
         "name": "Groq Cloud (Ultra Fast)",
-        "default_model": "llama-3.3-70b-versatile",
+        "default_model": "openai/gpt-oss-120b",
         "recommended_models": [
-            "llama-3.3-70b-versatile",
-            "llama-3.1-8b-instant",
-            "mixtral-8x7b-32768",
-            "gemma2-9b-it"
+            "openai/gpt-oss-120b",
+            "qwen/qwen3.8-27b",
+            "openai/gpt-oss-20b",
+            "allam-2-7b"
         ],
         "env_key": "GROQ_API_KEY",
         "doc_url": "https://console.groq.com/keys"

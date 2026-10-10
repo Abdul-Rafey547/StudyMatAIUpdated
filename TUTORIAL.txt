@@ -379,16 +379,21 @@ What is tested automatically:
 ================================================================================
 In the StudyMate AI Dashboard, navigate to "Settings" in the sidebar:
 - Active AI Provider: Select from:
+  • Groq Cloud (Ultra-Fast 120B & 27B Flagship Models):
+    - Default Model: `openai/gpt-oss-120b` (120B parameters, exceptional academic reasoning)
+    - Fallback Model: `qwen/qwen3.8-27b` (high-speed structured solution generation)
+    - Configured directly in `.env` via `GROQ_API_KEY`
   • Google Gemini (Gemini 1.5 Flash, 2.0 Flash, Pro)
   • Anthropic Claude (Claude 3.5 Sonnet, 3.5 Haiku, 3.7)
-  • Groq Cloud (Ultra-fast Llama 3.3 70B, Llama 3.1 8B)
   • OpenAI (GPT-4o, GPT-4o-mini)
   • DeepSeek (DeepSeek-Chat, DeepSeek-Reasoner)
   • Ollama (Local offline LLM on localhost:11434)
-  • Local Academic Fallback (Completely free, offline template engine)
-- API Key: Enter your key here or leave blank to inherit from `.env`.
-- Auto-Scan on Navigation: Automatically refreshes coursework when visiting Moodle.
-- Strict Student Approval: Requires manual student approval before any submission.
+  • Local Academic Fallback (Offline template engine)
+- API Key: Enter your key in the dashboard or configure in `.env`.
+- Auto-Submit Toggle:
+  • When ON: Clicking "Solve with AI" automatically generates and uploads the formatted DOCX solution directly to Moodle via REST Web Services.
+  • When OFF: Generates the solution and opens the Human-in-the-Loop Review Editor. Click "Submit to Moodle" whenever you are satisfied with your draft.
+- Strict Student Approval: You can edit the text and inspect the generated DOCX before confirming submission.
 
 ================================================================================
 7. TROUBLESHOOTING & COMMON QUESTIONS

@@ -70,11 +70,15 @@ class AnswerEditor {
                 <div class="answer-editor__student-actions">
                     <h3>Student Confirmation &amp; Control</h3>
                     <div class="answer-editor__btn-group">
-                        <button class="answer-editor__btn answer-editor__btn--save" id="saveDraftBtn" ${this.isApproved ? 'disabled' : ''}>
+                        <button class="answer-editor__btn answer-editor__btn--save" id="saveDraftBtn">
                             Save Draft
                         </button>
-                        <button class="answer-editor__btn answer-editor__btn--approve" id="approveBtn" ${this.isApproved ? 'disabled' : ''}>
-                            ${this.isApproved ? '✓ Approved by Student' : 'Approve Draft'}
+                        <button class="answer-editor__btn answer-editor__btn--approve" id="approveBtn">
+                            ${this.isApproved ? '✓ Approved' : 'Approve Draft'}
+                        </button>
+                        <button class="answer-editor__btn answer-editor__btn--submit" id="submitBtn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-weight: 600;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+                            Submit to Moodle
                         </button>
                     </div>
                 </div>
@@ -85,10 +89,6 @@ class AnswerEditor {
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                         Draft approved by student and ready for submission to Moodle
                     </div>
-                    <button class="answer-editor__btn answer-editor__btn--submit" id="submitBtn">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
-                        Submit to Moodle
-                    </button>
                 </div>` : ''}
             </div>
             
@@ -231,6 +231,19 @@ class AnswerEditor {
 
         if (submitBtn && modal) {
             submitBtn.addEventListener('click', () => {
+                const editedAnswer = textarea ? textarea.value : '';
+                if (!editedAnswer.trim()) {
+                    if (window.StudyMateNotification) {
+                        window.StudyMateNotification.error('Cannot submit an empty draft. Please generate or enter an answer.');
+                    }
+                    return;
+                }
+                if (!this.isApproved) {
+                    this.isApproved = true;
+                    this.solution.status = 'APPROVED';
+                    this.solution.edited_answer = editedAnswer;
+                    this.onApprove(this.task, editedAnswer);
+                }
                 modal.style.display = 'flex';
                 if (modalStatusArea) modalStatusArea.style.display = 'none';
             });

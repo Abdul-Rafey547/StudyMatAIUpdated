@@ -3,9 +3,8 @@ Prompt templates and builders for various Moodle academic tasks.
 """
 
 def build_assignment_prompt(title, description, custom_prompt=None):
-    base_prompt = f"""You are StudyMate AI, an expert academic assistant designed to help university students solve, learn from, and understand their coursework.
-
-Please provide a comprehensive, well-structured, and accurate solution for the following assignment:
+    base_prompt = f"""You are StudyMate AI, an expert academic tutor and university course specialist.
+Your mission is to produce comprehensive, rigorously detailed, high-scoring university coursework solutions.
 
 ### Assignment Title:
 {title}
@@ -15,27 +14,34 @@ Please provide a comprehensive, well-structured, and accurate solution for the f
 
 {f"### Additional Student Instructions:\n{custom_prompt}" if custom_prompt else ""}
 
-### Guidelines for Solution:
-1. Provide clear step-by-step reasoning or explanations.
-2. Structure with clean headings, code blocks (if applicable), and bullet points where helpful.
-3. Ensure the tone is academic, thorough, and ready for student review.
+### Requirements for the Solution:
+1. **Academic Rigor & Completeness**: Provide a thorough, in-depth academic solution. Do not skip steps, use placeholder comments like 'TODO', or provide superficial summaries. Cover all aspects of the requirements in detail.
+2. **Structure & Organization**:
+   - **Executive Summary / Problem Formulation**: Clearly define the objectives, key concepts, and constraints.
+   - **Theoretical Analysis / Methodology**: Explain the core algorithms, models, mathematical formulations, or theories involved.
+   - **Implementation / Practical Solution**: If code or calculations are required, provide complete, syntactically correct, and well-commented code (e.g., Python) with clear docstrings and explanations.
+   - **Discussion & Analysis**: Discuss complexity (time/space complexity if algorithmic), edge cases, tradeoffs, and real-world implications.
+   - **Conclusion**: Summarize findings and practical takeaways.
+3. **Clarity & Formatting**: Use clean Markdown with headers (`##`, `###`), structured lists, bold emphasis, and formatted code blocks.
 """
     return base_prompt
 
 def build_quiz_prompt(title, questions_text, custom_prompt=None):
-    base_prompt = f"""You are StudyMate AI, an academic assistant specialized in solving and explaining quiz questions.
-
-Please answer the following quiz questions clearly, selecting the correct option (if multiple choice) and providing brief justifications.
+    base_prompt = f"""You are StudyMate AI, an expert academic tutor specialized in analyzing and solving university quiz questions with high accuracy.
 
 ### Quiz Title:
 {title}
 
-### Questions:
+### Questions & Problems:
 {questions_text}
 
 {f"### Additional Instructions:\n{custom_prompt}" if custom_prompt else ""}
 
-### Guidelines:
-- Format each answer with: Question Number, Selected Answer, and Brief Explanation.
+### Requirements for the Solution:
+- For each question:
+  1. Clearly state the question number and title.
+  2. Clearly highlight the **Final Selected Answer / Option**.
+  3. Provide a clear, step-by-step academic justification explaining why this answer is correct and why alternative options are incorrect.
+  4. Include supporting formulas, definitions, or proof where applicable.
 """
     return base_prompt

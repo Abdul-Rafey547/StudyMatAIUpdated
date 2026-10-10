@@ -5,11 +5,12 @@
 
 class TaskCard {
     static create(task, options = {}) {
-        const { showActions = true, compact = false, onSolve = null, onView = null } = options;
+        const { showActions = true, compact = false, onSolve = null, onView = null, onSubmit = null } = options;
         
         const typeIcon = task.type === 'QUIZ' ? TaskCard.quizIcon() : TaskCard.assignmentIcon();
         const statusBadge = TaskCard.getStatusBadge(task.status);
         const dueText = TaskCard.formatDueDate(task.dueDate || task.due_date);
+        const hasSolution = !!(task.solution || task.solution_id || task.status === 'GENERATED' || task.status === 'Draft Ready' || task.status === 'APPROVED');
         
         const card = document.createElement('div');
         card.className = `task-card ${compact ? 'task-card--compact' : ''}`;
@@ -35,11 +36,16 @@ class TaskCard {
             <div class="task-card__actions">
                 <button class="task-card__btn task-card__btn--primary solve-btn" data-action="generate" data-task-id="${task.id || task.task_id}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                    Solve with AI
+                    ${hasSolution ? 'Regenerate' : 'Solve with AI'}
                 </button>
                 <button class="task-card__btn task-card__btn--secondary view-btn" data-action="view" data-task-id="${task.id || task.task_id}">
-                    View Details
+                    ${hasSolution ? 'Review Draft' : 'View Details'}
                 </button>
+                ${hasSolution && task.status !== 'SUBMITTED' && task.status !== 'Submitted' ? `
+                <button class="task-card__btn card-submit-btn" data-action="submit" data-task-id="${task.id || task.task_id}" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-weight: 600;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+                    Submit
+                </button>` : ''}
                 ${(task.moodle_url || task.url) ? `
                 <a href="${task.moodle_url || task.url}" target="_blank" class="task-card__btn task-card__btn--secondary moodle-link" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="Open in Moodle">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -51,8 +57,16 @@ class TaskCard {
         if (showActions) {
             const solveBtn = card.querySelector('.solve-btn');
             const viewBtn = card.querySelector('.view-btn');
+            const submitCardBtn = card.querySelector('.card-submit-btn');
             if (solveBtn && onSolve) solveBtn.addEventListener('click', (e) => { e.stopPropagation(); onSolve(task); });
             if (viewBtn && onView) viewBtn.addEventListener('click', (e) => { e.stopPropagation(); onView(task); });
+            if (submitCardBtn) {
+                submitCardBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (onSubmit) onSubmit(task);
+                    else if (onView) onView(task);
+                });
+            }
         }
         
         return card;

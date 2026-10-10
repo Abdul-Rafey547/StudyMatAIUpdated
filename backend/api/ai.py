@@ -39,6 +39,12 @@ def generate_solution():
         model_name = data.get('model') or data.get('ai_model')
         api_key = data.get('api_key') or data.get('apiKey')
 
+        # If incoming provider has no key provided and Config has a configured provider with key, prefer Config
+        if (not provider_name or provider_name.lower() in ('google', 'gemini')) and not api_key:
+            if Config.GROQ_API_KEY:
+                provider_name = 'groq'
+                model_name = model_name or Config.AI_MODEL_NAME or 'openai/gpt-oss-120b'
+
         if not task_id:
             return jsonify({"error": "task_id is required"}), 400
 

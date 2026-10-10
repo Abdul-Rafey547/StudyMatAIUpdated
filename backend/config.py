@@ -10,9 +10,9 @@ class Config:
 
     # AI Configuration
     # Supported: google (gemini), claude (anthropic), groq, openai, deepseek, ollama, fallback
-    AI_PROVIDER = os.getenv('AI_PROVIDER', 'google').lower()
+    AI_PROVIDER = os.getenv('AI_PROVIDER', 'groq').lower()
     AI_API_KEY = os.getenv('AI_API_KEY', '')
-    AI_MODEL_NAME = os.getenv('AI_MODEL_NAME', '')
+    AI_MODEL_NAME = os.getenv('AI_MODEL_NAME', 'openai/gpt-oss-120b')
     AI_FALLBACK_ON_ERROR = os.getenv('AI_FALLBACK_ON_ERROR', 'true').lower() in ('true', '1', 'yes')
 
     # Provider-Specific API Keys (takes precedence over generic AI_API_KEY if specified)

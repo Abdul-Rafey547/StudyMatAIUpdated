@@ -368,7 +368,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = TaskCard.create(task, {
                 showActions: true,
                 onSolve: (t) => handleSolveTask(t),
-                onView: (t) => openTaskInReview(t)
+                onView: (t) => openTaskInReview(t),
+                onSubmit: (t) => openTaskInReview(t)
             });
             els.recentGrid.appendChild(card);
         });
@@ -405,7 +406,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = TaskCard.create(task, {
                 showActions: true,
                 onSolve: (t) => handleSolveTask(t),
-                onView: (t) => openTaskInReview(t)
+                onView: (t) => openTaskInReview(t),
+                onSubmit: (t) => openTaskInReview(t)
             });
             els.allTasksGrid.appendChild(card);
         });
@@ -436,7 +438,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = TaskCard.create(task, {
                 showActions: true,
                 onSolve: (t) => handleSolveTask(t),
-                onView: (t) => openTaskInReview(t)
+                onView: (t) => openTaskInReview(t),
+                onSubmit: (t) => openTaskInReview(t)
             });
             els.draftsGrid.appendChild(card);
         });
@@ -461,7 +464,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (res && res.success) {
-                StudyMateNotification.success('Solution generated successfully! Opening in Review tab.');
+                if (res.autoSubmitted) {
+                    StudyMateNotification.success('Solution generated and submitted directly to Moodle!');
+                } else {
+                    StudyMateNotification.success('Solution generated successfully! Review draft below and click "Submit to Moodle".');
+                }
                 await loadTasks();
                 const updatedTask = currentTasks.find(t => (t.id || t.task_id) == (task.id || task.task_id)) || task;
                 if (res.solution) {

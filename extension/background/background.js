@@ -6,8 +6,8 @@
 const DEFAULT_CONFIG = {
   backendUrl: 'http://localhost:5000/api',
   moodleUrl: 'http://moodle.local',
-  aiProvider: 'google', // 'google' | 'claude' | 'groq' | 'openai' | 'deepseek' | 'ollama' | 'fallback'
-  aiModel: '',
+  aiProvider: 'groq', // 'groq' | 'google' | 'claude' | 'openai' | 'deepseek' | 'ollama' | 'fallback'
+  aiModel: 'openai/gpt-oss-120b',
   aiApiKey: '',
   autoSubmit: false,
   autoScan: true,
@@ -226,8 +226,9 @@ async function handleMessage(action, message, sender) {
 
     // 7. Get Learning Resources
     case 'GET_RESOURCES': {
-      const courseIdParam = message.courseId ? `?course_id=${message.courseId}` : '';
-      const backendRes = await apiRequest(`/resources${courseIdParam}`);
+      const queryParts = ['enrolled_only=true'];
+      if (message.courseId) queryParts.push(`course_id=${message.courseId}`);
+      const backendRes = await apiRequest(`/resources?${queryParts.join('&')}`);
       if (backendRes.success && Array.isArray(backendRes.resources)) {
         await chrome.storage.local.set({ resources: backendRes.resources });
         return {
@@ -237,9 +238,11 @@ async function handleMessage(action, message, sender) {
           source: 'backend'
         };
       }
-      // Fallback to local storage
+      // Fallback to local storage (filter out unavailable)
       const stored = await chrome.storage.local.get(['resources']);
-      return { success: true, resources: stored.resources || [], source: 'local' };
+      let localRes = stored.resources || [];
+      localRes = localRes.filter(r => r.availability_status !== 'UNAVAILABLE' && r.availabilityStatus !== 'UNAVAILABLE');
+      return { success: true, resources: localRes, source: 'local' };
     }
 
     // 8. Generate AI Solution
@@ -249,11 +252,12 @@ async function handleMessage(action, message, sender) {
       const taskId = payload.task_id || payload.taskId;
       const prompt = payload.prompt || payload.custom_prompt || '';
       const context = payload.context || '';
-      const provider = payload.provider || config.aiProvider || 'google';
-      const model = payload.model || config.aiModel || '';
+      const provider = payload.provider || config.aiProvider || 'groq';
+      const model = payload.model || config.aiModel || 'openai/gpt-oss-120b';
       const apiKey = payload.api_key || config.aiApiKey || '';
+      const shouldAutoSubmit = payload.autoSubmit !== undefined ? payload.autoSubmit : (payload.auto_submit !== undefined ? payload.auto_submit : !!config.autoSubmit);
 
-      console.log(`[StudyMate AI] Requesting AI solution for task ${taskId} using ${provider}...`);
+      console.log(`[StudyMate AI] Requesting AI solution for task ${taskId} using ${provider}... (autoSubmit: ${shouldAutoSubmit})`);
 
       const backendRes = await apiRequest('/ai/generate', {
         method: 'POST',
@@ -277,6 +281,58 @@ async function handleMessage(action, message, sender) {
           tasks[tIdx].solution = backendRes.solution;
           tasks[tIdx].solutionId = backendRes.solution_id;
           await chrome.storage.local.set({ tasks });
+        }
+
+        // Auto-upload and submit to Moodle if autoSubmit is enabled
+        if (shouldAutoSubmit) {
+          console.log(`[StudyMate AI] autoSubmit is enabled. Uploading generated solution directly to Moodle...`);
+          try {
+            const solText = backendRes.solution?.generated_answer || backendRes.solution?.edited_answer || backendRes.answer || '';
+            const uploadRes = await apiRequest('/submissions/upload-to-moodle', {
+              method: 'POST',
+              body: JSON.stringify({
+                task_id: taskId,
+                solution_id: backendRes.solution_id,
+                format: 'DOCX',
+                answer: solText
+              })
+            });
+
+            if (uploadRes.success) {
+              backendRes.autoSubmitted = true;
+              backendRes.submission_status = uploadRes.submission_status;
+              backendRes.file_name = uploadRes.file_name;
+
+              // Update local task to Submitted
+              const postStorage = await chrome.storage.local.get(['tasks', 'history']);
+              const pTasks = postStorage.tasks || [];
+              const pIdx = pTasks.findIndex(t => (t.id || t.task_id) == taskId);
+              if (pIdx >= 0) {
+                pTasks[pIdx].status = 'Submitted';
+                pTasks[pIdx].availabilityStatus = 'SUBMITTED';
+                pTasks[pIdx].isActionablePending = false;
+                pTasks[pIdx].submissionStatus = uploadRes.submission_status || 'Submitted for grading';
+                await chrome.storage.local.set({ tasks: pTasks });
+              }
+
+              // Record in submission history
+              const history = postStorage.history || [];
+              history.unshift({
+                id: 'sub_' + Date.now(),
+                taskId: taskId,
+                title: tasks[tIdx]?.title || 'Assignment Submission',
+                course: tasks[tIdx]?.courseName || tasks[tIdx]?.course || 'Course',
+                submittedAt: new Date().toISOString(),
+                fileName: uploadRes.file_name,
+                fileFormat: 'DOCX',
+                status: uploadRes.submission_status || 'Submitted for grading',
+                verified: true
+              });
+              await chrome.storage.local.set({ history });
+            }
+          } catch (autoErr) {
+            console.error('[StudyMate AI] Auto-submission error:', autoErr);
+          }
         }
       }
 

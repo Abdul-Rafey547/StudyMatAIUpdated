@@ -36,7 +36,10 @@ class BaseAIProvider:
         Helper method to execute HTTP POST requests with JSON payload using standard urllib.
         """
         json_data = json.dumps(payload).encode('utf-8')
-        req = urllib.request.Request(url, data=json_data, headers=headers, method='POST')
+        req_headers = dict(headers)
+        if "User-Agent" not in req_headers:
+            req_headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        req = urllib.request.Request(url, data=json_data, headers=req_headers, method='POST')
 
         try:
             with urllib.request.urlopen(req, timeout=timeout) as response:

@@ -21,6 +21,15 @@ class ResourceScannerTestCase(unittest.TestCase):
         self.app.testing = True
         init_db()
 
+    def tearDown(self):
+        from database.database import get_db_connection
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("DELETE FROM resources WHERE course_id IN (SELECT course_id FROM courses WHERE course_name = 'AI 101')")
+        c.execute("DELETE FROM courses WHERE course_name = 'AI 101'")
+        conn.commit()
+        conn.close()
+
     def test_resource_sync_and_list(self):
         """Course resources (PDF book, lecture slides, DOCX) sync and display properly."""
         payload = {

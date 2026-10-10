@@ -367,6 +367,13 @@ class MoodleScanner:
                     WHERE course_id NOT IN ({placeholders})
                 """, tuple(enrolled_db_cids))
 
+                # Also mark resources belonging to non-enrolled courses as UNAVAILABLE
+                c_cursor.execute(f"""
+                    UPDATE resources
+                    SET availability_status = 'UNAVAILABLE'
+                    WHERE course_id NOT IN ({placeholders})
+                """, tuple(enrolled_db_cids))
+
                 # B. Mark tasks within enrolled courses that are no longer returned by Moodle as UNAVAILABLE & non-pending
                 if scanned_task_ids:
                     scanned_placeholders = ','.join('?' for _ in scanned_task_ids)

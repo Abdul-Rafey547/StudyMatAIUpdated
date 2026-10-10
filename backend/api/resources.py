@@ -123,29 +123,37 @@ def sync_resources():
 @resources_bp.route('', methods=['GET'])
 def get_resources():
     """
-    List all discovered study materials, with optional course filtering.
+    List all discovered study materials, with optional course filtering and enrolled-only filter.
+    Excludes unavailable or orphaned phantom resources.
     """
     conn = None
     try:
         course_id = request.args.get('course_id')
+        enrolled_only = request.args.get('enrolled_only', '').lower() in ('true', '1', 'yes')
         conn = get_db_connection()
         c = conn.cursor()
 
+        query = """
+            SELECT r.*, c.course_name
+            FROM resources r
+            INNER JOIN courses c ON r.course_id = c.course_id
+            WHERE (r.availability_status != 'UNAVAILABLE' OR r.availability_status IS NULL)
+        """
+        params = []
+
+        if enrolled_only:
+            c.execute("SELECT course_id FROM courses WHERE moodle_course_id IS NOT NULL")
+            enrolled_cids = [row['course_id'] for row in c.fetchall()]
+            if enrolled_cids:
+                query += f" AND r.course_id IN ({','.join('?' for _ in enrolled_cids)})"
+                params.extend(enrolled_cids)
+
         if course_id:
-            c.execute("""
-                SELECT r.*, c.course_name
-                FROM resources r
-                LEFT JOIN courses c ON r.course_id = c.course_id
-                WHERE r.course_id = ?
-                ORDER BY r.created_at DESC
-            """, (course_id,))
-        else:
-            c.execute("""
-                SELECT r.*, c.course_name
-                FROM resources r
-                LEFT JOIN courses c ON r.course_id = c.course_id
-                ORDER BY r.created_at DESC
-            """)
+            query += " AND r.course_id = ?"
+            params.append(course_id)
+
+        query += " ORDER BY r.created_at DESC"
+        c.execute(query, tuple(params))
 
         rows = c.fetchall()
         resources = []

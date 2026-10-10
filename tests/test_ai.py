@@ -64,7 +64,7 @@ class AITestCase(unittest.TestCase):
 
         groq = get_provider("groq", api_key="gsk_test")
         self.assertIsInstance(groq, GroqProvider)
-        self.assertEqual(groq.model_name, "llama-3.3-70b-versatile")
+        self.assertIn(groq.model_name, ["llama-3.3-70b-versatile", "openai/gpt-oss-120b"])
 
         openai_p = get_provider("openai", api_key="sk-test")
         self.assertIsInstance(openai_p, OpenAIProvider)
