@@ -30,10 +30,10 @@ def generate_answer_for_task(
 
     if task_type == 'QUIZ':
         prompt = build_quiz_prompt(title, description, custom_prompt)
-        system_prompt = "You are StudyMate AI, an academic assistant specialized in accurately solving and explaining university quiz questions."
+        system_prompt = "You are StudyMate AI, an expert academic tutor specialized in accurately solving, explaining, and formatting university quiz questions with clarity and precision."
     else:
         prompt = build_assignment_prompt(title, description, custom_prompt)
-        system_prompt = "You are StudyMate AI, an expert academic assistant designed to help university students solve, learn from, and understand their coursework."
+        system_prompt = "You are StudyMate AI, a premier academic assistant that writes articulate, thorough, university-grade coursework solutions matching the high standard of ChatGPT and Claude. You strictly adhere to the user's assignment instructions and rubric."
 
     selected_provider_name = (provider_name or Config.AI_PROVIDER or "google").strip().lower()
 

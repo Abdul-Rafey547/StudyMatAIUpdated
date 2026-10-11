@@ -3,45 +3,44 @@ Prompt templates and builders for various Moodle academic tasks.
 """
 
 def build_assignment_prompt(title, description, custom_prompt=None):
-    base_prompt = f"""You are StudyMate AI, an expert academic tutor and university course specialist.
-Your mission is to produce comprehensive, rigorously detailed, high-scoring university coursework solutions.
+    base_prompt = f"""You are an expert university academic assistant and coursework writer, producing work of the highest caliber matching leading models like ChatGPT and Claude.
+
+Please write a comprehensive, top-scoring coursework solution for the following assignment:
 
 ### Assignment Title:
 {title}
 
-### Assignment Description & Requirements:
+### Assignment Instructions & Prompt:
 {description}
 
-{f"### Additional Student Instructions:\n{custom_prompt}" if custom_prompt else ""}
-
-### Requirements for the Solution:
-1. **Academic Rigor & Completeness**: Provide a thorough, in-depth academic solution. Do not skip steps, use placeholder comments like 'TODO', or provide superficial summaries. Cover all aspects of the requirements in detail.
-2. **Structure & Organization**:
-   - **Executive Summary / Problem Formulation**: Clearly define the objectives, key concepts, and constraints.
-   - **Theoretical Analysis / Methodology**: Explain the core algorithms, models, mathematical formulations, or theories involved.
-   - **Implementation / Practical Solution**: If code or calculations are required, provide complete, syntactically correct, and well-commented code (e.g., Python) with clear docstrings and explanations.
-   - **Discussion & Analysis**: Discuss complexity (time/space complexity if algorithmic), edge cases, tradeoffs, and real-world implications.
-   - **Conclusion**: Summarize findings and practical takeaways.
-3. **Clarity & Formatting**: Use clean Markdown with headers (`##`, `###`), structured lists, bold emphasis, and formatted code blocks.
+{f"### Additional Student Instructions:\n{custom_prompt}\n" if custom_prompt else ""}
+### Academic Writing Guidelines:
+1. **Strictly Address the Assignment**: Carefully read and follow all specific instructions, topics, sections, and criteria listed in the assignment description above. If specific headings, questions, or sections are requested (e.g., numbered items 1 through 5), structure your paper around those exact sections.
+2. **Quality & Depth**: Write articulate, well-developed, university-standard paragraphs. Avoid superficial one-sentence bullet points; provide thoughtful explanations, real-world context, and clear reasoning.
+3. **Format & Style**:
+   - Format in clean, readable Markdown with professional headings (`##`, `###`).
+   - Use comparison tables or structured lists where they genuinely enhance clarity.
+   - If the assignment asks for an essay or report, write fluent prose. Only include programming code if the assignment explicitly requests code or implementation.
+   - Adhere to any specified length constraints (e.g., if a 2-page report is requested, provide a thorough, well-rounded paper of approximately 800–1200 words).
+4. **Completeness**: Deliver a complete, polished, submission-ready draft from opening to final concluding sentence. Do not leave placeholder comments, incomplete thoughts, or cut off mid-sentence.
 """
     return base_prompt
 
 def build_quiz_prompt(title, questions_text, custom_prompt=None):
-    base_prompt = f"""You are StudyMate AI, an expert academic tutor specialized in analyzing and solving university quiz questions with high accuracy.
+    base_prompt = f"""You are an expert academic tutor specialized in analyzing and solving university quiz questions with high accuracy and clear explanations.
 
 ### Quiz Title:
 {title}
 
-### Questions & Problems:
+### Quiz Questions:
 {questions_text}
 
-{f"### Additional Instructions:\n{custom_prompt}" if custom_prompt else ""}
-
-### Requirements for the Solution:
+{f"### Additional Instructions:\n{custom_prompt}\n" if custom_prompt else ""}
+### Instructions:
+- Answer each question accurately.
 - For each question:
-  1. Clearly state the question number and title.
-  2. Clearly highlight the **Final Selected Answer / Option**.
-  3. Provide a clear, step-by-step academic justification explaining why this answer is correct and why alternative options are incorrect.
-  4. Include supporting formulas, definitions, or proof where applicable.
+  1. Clearly state the Question Number and Question Text.
+  2. Clearly state the **Correct Answer** (option letter and full text if multiple choice).
+  3. Provide a clear, concise academic explanation justifying why this answer is correct and why other options are incorrect.
 """
     return base_prompt

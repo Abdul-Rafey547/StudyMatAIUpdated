@@ -37,7 +37,8 @@ class GroqProvider(BaseAIProvider):
             payload: Dict[str, Any] = {
                 "model": active_model,
                 "messages": messages,
-                "temperature": kwargs.get("temperature", 0.3)
+                "temperature": kwargs.get("temperature", 0.6),
+                "max_tokens": kwargs.get("max_tokens", 4096)
             }
 
             try:
